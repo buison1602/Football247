@@ -1,4 +1,5 @@
 using Football247.Data;
+using Football247.Mappings;
 using Football247.Repositories;
 using Football247.Repositories.IRepository;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,9 @@ builder.Services.AddDbContext<Football247DbContext>(options =>
 
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+builder.Services.AddAutoMapper(typeof(AutoMapperProfiles));
+
 
 var app = builder.Build();
 

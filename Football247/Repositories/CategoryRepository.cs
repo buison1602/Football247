@@ -1,6 +1,7 @@
 ﻿using Football247.Data;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
 namespace Football247.Repositories
@@ -34,6 +35,7 @@ namespace Football247.Repositories
             // Map DTO to Domain Model 
             existingEntity.Name = category.Name;
             existingEntity.Slug = category.Slug;
+            existingEntity.UpdatedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
 

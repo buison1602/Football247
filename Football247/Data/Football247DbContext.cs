@@ -29,7 +29,8 @@ namespace Football247.Data
                     Id = Guid.Parse("091a6e9c-b9d6-4854-9eb5-8239f1501a9f"),
                     Name = "CHAMPIONS LEAGUE",
                     Slug = "champions-league",
-                    CreatedAt = new DateTime(2025, 5, 7, 16, 38, 39, 658, DateTimeKind.Utc) // Giá trị tĩnh,
+                    CreatedAt = new DateTime(2025, 5, 7, 16, 38, 39, 658, DateTimeKind.Utc), // Giá trị tĩnh,
+                    UpdatedAt = null
                 },
 
                 new Category()
@@ -37,7 +38,8 @@ namespace Football247.Data
                     Id = Guid.Parse("811d5c7d-30ba-4dd9-b479-505a65a217cf"),
                     Name = "SPAIN ",
                     Slug = "spain",
-                    CreatedAt = new DateTime(2025, 5, 7, 16, 38, 39, 658, DateTimeKind.Utc) // Giá trị tĩnh,
+                    CreatedAt = new DateTime(2025, 5, 7, 16, 38, 39, 658, DateTimeKind.Utc), // Giá trị tĩnh,
+                    UpdatedAt = null
                 },
             };
 
