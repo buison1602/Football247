@@ -4,6 +4,8 @@ using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
+using System.Diagnostics;
 
 namespace Football247.Controllers
 {
@@ -13,23 +15,41 @@ namespace Football247.Controllers
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        public CategoryController(IUnitOfWork unitOfWork, IMapper mapper)
+        private readonly IMemoryCache _memoryCache;
+        private const string CacheKey = "categories";
+
+        public CategoryController(IUnitOfWork unitOfWork, IMapper mapper, IMemoryCache memoryCache)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _memoryCache = memoryCache;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var categories = await _unitOfWork.CategoryRepository.GetAllAsync();
-            if (categories == null || !categories.Any())
+            List<Category>? categories;
+
+            if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
             {
-                return NotFound();
+                categories = data;
+            }
+            else
+            {
+                categories = await _unitOfWork.CategoryRepository.GetAllAsync();
+                if (categories == null || !categories.Any())
+                {
+                    return NotFound();
+                }
+
+                // Set cache options
+                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromDays(1));
+                _memoryCache.Set(CacheKey, categories, cacheEntryOptions);
             }
 
             // Map the list of Category entities to a list of CategoryDto
-            LinkedList<CategoryDto> categoryDtos = _mapper.Map<LinkedList<CategoryDto>>(categories);
+            List<CategoryDto> categoryDtos = _mapper.Map<List<CategoryDto>>(categories);
+
             return Ok(categories);
         }
 
@@ -71,6 +91,13 @@ namespace Football247.Controllers
 
             // Create the category
             categoryDomain = await _unitOfWork.CategoryRepository.CreateAsync(categoryDomain);
+            if (categoryDomain == null)
+            {
+                return BadRequest();
+            }
+
+            // Delete old cache 
+            _memoryCache.Remove(CacheKey);
 
             // Map Domain Model back to DTO
             CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
@@ -90,6 +117,9 @@ namespace Football247.Controllers
                 return NotFound();
             }
 
+            // Delete old cache 
+            _memoryCache.Remove(CacheKey);
+
             // Map Domain Model back to DTO
             CategoryDto categoryDto = _mapper.Map<CategoryDto>(updatedCategory);
 
@@ -107,8 +137,12 @@ namespace Football247.Controllers
                 return NotFound();
             }
 
+            // Delete old cache 
+            _memoryCache.Remove(CacheKey);
+
             // Map Domain Model back to DTO
             CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
+
             return Ok(categoryDto);
         }
     }
