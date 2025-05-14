@@ -57,13 +57,33 @@ namespace Football247.Controllers
         [Route("{id:Guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var categoryDomain = await _unitOfWork.CategoryRepository.GetByIdAsync(id);
+            // Khởi tạo Stopwatch
+            var stopwatch = Stopwatch.StartNew();
+
+            Category? categoryDomain;
+
+            if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
+            {
+                categoryDomain = data?.FirstOrDefault(c => c.Id == id);
+                if (categoryDomain != null)
+                {
+                    return Ok(_mapper.Map<CategoryDto>(categoryDomain));
+                }
+            }
+
+            categoryDomain = await _unitOfWork.CategoryRepository.GetByIdAsync(id);
             if (categoryDomain == null)
             {
                 return NotFound();
             }
 
             CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
+
+            stopwatch.Stop();
+            Console.WriteLine("/n/n---------------------------------/n/n");
+            Console.WriteLine("ID: " + stopwatch.ElapsedMilliseconds);
+            Console.WriteLine("/n/n---------------------------------/n/n");
+
 
             return Ok(categoryDto);
         }
@@ -72,13 +92,30 @@ namespace Football247.Controllers
         [Route("{slug}")]
         public async Task<IActionResult> GetBySlug(string slug)
         {
-            var categoryDomain = await _unitOfWork.CategoryRepository.GetBySlugAsync(slug);
+            var stopwatch = Stopwatch.StartNew();
+            Category? categoryDomain;
+
+            if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
+            {
+                categoryDomain = data?.FirstOrDefault(c => c.Slug == slug);
+                if (categoryDomain != null)
+                {
+                    return Ok(_mapper.Map<CategoryDto>(categoryDomain));
+                }
+            }
+
+            categoryDomain = await _unitOfWork.CategoryRepository.GetBySlugAsync(slug);
             if (categoryDomain == null)
             {
                 return NotFound();
             }
 
             CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
+
+            stopwatch.Stop();
+            Console.WriteLine("/n/n---------------------------------/n/n");
+            Console.WriteLine("Slug: " + stopwatch.ElapsedMilliseconds);
+            Console.WriteLine("/n/n---------------------------------/n/n");
 
             return Ok(categoryDto);
         }
