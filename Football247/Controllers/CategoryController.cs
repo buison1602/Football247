@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using System.Diagnostics;
+using System.Reflection;
 
 namespace Football247.Controllers
 {
@@ -16,171 +17,194 @@ namespace Football247.Controllers
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IMemoryCache _memoryCache;
+        private readonly ILogger<CategoryController> _logger;
         private const string CacheKey = "categories";
 
-        public CategoryController(IUnitOfWork unitOfWork, IMapper mapper, IMemoryCache memoryCache)
+        public CategoryController(IUnitOfWork unitOfWork, IMapper mapper, IMemoryCache memoryCache, ILogger<CategoryController> logger)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _memoryCache = memoryCache;
+            _logger = logger;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            List<Category>? categories;
+            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}" );
 
-            if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
+            try
             {
-                categories = data;
-            }
-            else
-            {
-                categories = await _unitOfWork.CategoryRepository.GetAllAsync();
-                if (categories == null || !categories.Any())
+                List<Category>? categories;
+
+                if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
                 {
-                    return NotFound();
+                    categories = data;
                 }
+                else
+                {
+                    categories = await _unitOfWork.CategoryRepository.GetAllAsync();
+                    if (categories == null || !categories.Any())
+                    {
+                        return NotFound();
+                    }
 
-                // Set cache options
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromDays(1));
-                _memoryCache.Set(CacheKey, categories, cacheEntryOptions);
+                    // Set cache options
+                    var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromDays(1));
+                    _memoryCache.Set(CacheKey, categories, cacheEntryOptions);
+                }
+                // Map the list of Category entities to a list of CategoryDto
+                List<CategoryDto> categoryDtos = _mapper.Map<List<CategoryDto>>(categories);
+
+                return Ok(categoryDtos);
             }
-
-            // Map the list of Category entities to a list of CategoryDto
-            List<CategoryDto> categoryDtos = _mapper.Map<List<CategoryDto>>(categories);
-
-            return Ok(categories);
+            catch (Exception ex) 
+            {
+                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
+                return StatusCode(500, ex.Message);
+            } 
         }
 
         [HttpGet]
         [Route("{id:Guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            // Khởi tạo Stopwatch
-            var stopwatch = Stopwatch.StartNew();
-
-            Category? categoryDomain;
-
-            if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
+            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
+            try
             {
-                categoryDomain = data?.FirstOrDefault(c => c.Id == id);
-                if (categoryDomain != null)
+                Category? categoryDomain;
+
+                if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
                 {
-                    return Ok(_mapper.Map<CategoryDto>(categoryDomain));
+                    categoryDomain = data?.FirstOrDefault(c => c.Id == id);
+                    if (categoryDomain != null)
+                    {
+                        return Ok(_mapper.Map<CategoryDto>(categoryDomain));
+                    }
                 }
-            }
+                categoryDomain = await _unitOfWork.CategoryRepository.GetByIdAsync(id);
+                if (categoryDomain == null)
+                {
+                    return NotFound();
+                }
+                CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
 
-            categoryDomain = await _unitOfWork.CategoryRepository.GetByIdAsync(id);
-            if (categoryDomain == null)
+                return Ok(categoryDto);
+            }
+            catch (Exception ex)
             {
-                return NotFound();
+                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
+                return StatusCode(500, ex.Message);
             }
-
-            CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
-
-            stopwatch.Stop();
-            Console.WriteLine("/n/n---------------------------------/n/n");
-            Console.WriteLine("ID: " + stopwatch.ElapsedMilliseconds);
-            Console.WriteLine("/n/n---------------------------------/n/n");
-
-
-            return Ok(categoryDto);
         }
 
         [HttpGet]
         [Route("{slug}")]
         public async Task<IActionResult> GetBySlug(string slug)
         {
-            var stopwatch = Stopwatch.StartNew();
-            Category? categoryDomain;
-
-            if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
+            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
+            
+            try
             {
-                categoryDomain = data?.FirstOrDefault(c => c.Slug == slug);
-                if (categoryDomain != null)
+                Category? categoryDomain;
+
+                if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
                 {
-                    return Ok(_mapper.Map<CategoryDto>(categoryDomain));
+                    categoryDomain = data?.FirstOrDefault(c => c.Slug == slug);
+                    if (categoryDomain != null)
+                    {
+                        return Ok(_mapper.Map<CategoryDto>(categoryDomain));
+                    }
                 }
-            }
+                categoryDomain = await _unitOfWork.CategoryRepository.GetBySlugAsync(slug);
+                if (categoryDomain == null)
+                {
+                    return NotFound();
+                }
+                CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
 
-            categoryDomain = await _unitOfWork.CategoryRepository.GetBySlugAsync(slug);
-            if (categoryDomain == null)
+                return Ok(categoryDto);
+            } 
+            catch (Exception ex)
             {
-                return NotFound();
+                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
+                return StatusCode(500, ex.Message);
             }
-
-            CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
-
-            stopwatch.Stop();
-            Console.WriteLine("/n/n---------------------------------/n/n");
-            Console.WriteLine("Slug: " + stopwatch.ElapsedMilliseconds);
-            Console.WriteLine("/n/n---------------------------------/n/n");
-
-            return Ok(categoryDto);
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] AddCategoryRequestDto addCategoryRequestDto)
         {
-            // Map DTO to Domain Model
-            Category categoryDomain = _mapper.Map<Category>(addCategoryRequestDto);
+            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
 
-            // Create the category
-            categoryDomain = await _unitOfWork.CategoryRepository.CreateAsync(categoryDomain);
-            if (categoryDomain == null)
+            try
             {
-                return BadRequest();
+                Category categoryDomain = _mapper.Map<Category>(addCategoryRequestDto);
+                categoryDomain = await _unitOfWork.CategoryRepository.CreateAsync(categoryDomain);
+                if (categoryDomain == null)
+                {
+                    return BadRequest();
+                }
+                _memoryCache.Remove(CacheKey);
+                CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
+
+                return CreatedAtAction(nameof(GetById), new { id = categoryDto.Id }, categoryDto);
+            } 
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
+                return StatusCode(500, ex.Message);
             }
-
-            // Delete old cache 
-            _memoryCache.Remove(CacheKey);
-
-            // Map Domain Model back to DTO
-            CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
-
-            return CreatedAtAction(nameof(GetById), new { id = categoryDto.Id }, categoryDto);
         }
 
         [HttpPut]
         [Route("{id:Guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCategoryRequestDto updateCategoryRequestDto)
         {
-            var categoryDomain = _mapper.Map<Category>(updateCategoryRequestDto);
-            var updatedCategory = await _unitOfWork.CategoryRepository.UpdateAsync(id, categoryDomain);
-
-            if (updatedCategory == null)
+            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
+            try
             {
-                return NotFound();
+                var categoryDomain = _mapper.Map<Category>(updateCategoryRequestDto);
+                var updatedCategory = await _unitOfWork.CategoryRepository.UpdateAsync(id, categoryDomain);
+                if (updatedCategory == null)
+                {
+                    return NotFound();
+                }
+                _memoryCache.Remove(CacheKey);
+                CategoryDto categoryDto = _mapper.Map<CategoryDto>(updatedCategory);
+
+                return Ok(categoryDto);
             }
-
-            // Delete old cache 
-            _memoryCache.Remove(CacheKey);
-
-            // Map Domain Model back to DTO
-            CategoryDto categoryDto = _mapper.Map<CategoryDto>(updatedCategory);
-
-            return Ok(categoryDto);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
+                return StatusCode(500, ex.Message);
+            }
         }
 
         [HttpDelete]
         [Route("{id:Guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var categoryDomain = await _unitOfWork.CategoryRepository.DeleteAsync(id);
-
-            if (categoryDomain == null)
+            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
+            try
             {
-                return NotFound();
+                var categoryDomain = await _unitOfWork.CategoryRepository.DeleteAsync(id);
+                if (categoryDomain == null)
+                {
+                    return NotFound();
+                }
+                _memoryCache.Remove(CacheKey);
+                CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
+
+                return Ok(categoryDto);
             }
-
-            // Delete old cache 
-            _memoryCache.Remove(CacheKey);
-
-            // Map Domain Model back to DTO
-            CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
-
-            return Ok(categoryDto);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
+                return StatusCode(500, ex.Message);
+            }
+            
         }
     }
 }
