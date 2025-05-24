@@ -3,6 +3,7 @@
     public interface IUnitOfWork
     {
         ICategoryRepository CategoryRepository { get; }
+        IArticleRepository ArticleRepository { get; }
         Task SaveAsync();
     }
 }

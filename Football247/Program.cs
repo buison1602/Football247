@@ -26,7 +26,7 @@ builder.Services.AddDbContext<Football247DbContext>(options =>
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-builder.Services.AddAutoMapper(typeof(AutoMapperProfiles));
+builder.Services.AddAutoMapper(typeof(Program));
 
 builder.Services.AddMemoryCache();
 

@@ -15,7 +15,7 @@ namespace Football247.Repositories
             _dbSet = db.Set<T>();
         }
 
-        public async Task<T> CreateAsync(T entity)
+        public virtual async Task<T> CreateAsync(T entity)
         {
             await _dbSet.AddAsync(entity);
             await _db.SaveChangesAsync();
@@ -35,7 +35,7 @@ namespace Football247.Repositories
             return existingEntity;
         }
 
-        public async Task<List<T>> GetAllAsync()
+        public virtual async Task<List<T>> GetAllAsync()
         {
             return await _dbSet.ToListAsync();
         }

@@ -7,23 +7,17 @@ namespace Football247.Models.Entities
         [Key]
         public Guid Id { get; set; }
 
-        [Required]
         public string Title { get; set; }
         
-        [Required]
         public string Slug { get; set; }
         
-        [Required]
         public string Description { get; set; }
         
-        [Required]
         public string Content { get; set; }
         
-        [Required]
         public int Priority { get; set; }
         
-        [Required]
-        public string BgrImg { get; set; }
+        public List<string> BgrImg { get; set; }
 
         public int ViewCount { get; set; }
 
@@ -31,10 +25,14 @@ namespace Football247.Models.Entities
         public DateTime? UpdatedAt { get; set; }
         public byte IsApproved { get; set; }
 
-        public Guid? CreatorId { get; set; }
+        public string? CreatorId { get; set; }
         public Guid CategoryId { get; set; }
 
         // Navigation
+        public User Creator { get; set; } 
+
+        public Category Category { get; set; }
+
         public ICollection<ArticleTag> ArticleTags { get; set; }
     }
 }

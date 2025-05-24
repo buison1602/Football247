@@ -7,11 +7,14 @@ namespace Football247.Repositories
     {
         private readonly Football247DbContext _db;
         public ICategoryRepository CategoryRepository { get; private set; }
+        public IArticleRepository ArticleRepository { get; private set; }
+
 
         public UnitOfWork(Football247DbContext db)
         {
             _db = db;
             CategoryRepository = new CategoryRepository(_db);
+            ArticleRepository = new ArticleRepository(_db);
         }
         public Task SaveAsync()
         {

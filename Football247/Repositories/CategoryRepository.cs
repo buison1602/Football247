@@ -16,6 +16,8 @@ namespace Football247.Repositories
 
         public async Task<Category> GetBySlugAsync(string slug)
         {
+            //_db.Categories.Include
+            
             var existingEntity = await _db.Categories.FirstOrDefaultAsync(u => u.Slug == slug);
             if (existingEntity == null)
             {

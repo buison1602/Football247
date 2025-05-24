@@ -148,7 +148,7 @@ namespace Football247.Controllers
                 _memoryCache.Remove(CacheKey);
                 CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
 
-                return CreatedAtAction(nameof(GetById), new { id = categoryDto.Id }, categoryDto);
+                return CreatedAtAction(nameof(GetBySlug), new { slug = categoryDto.Slug }, categoryDto);
             } 
             catch (Exception ex)
             {
