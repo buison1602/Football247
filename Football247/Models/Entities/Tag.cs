@@ -14,7 +14,8 @@ namespace Football247.Models.Entities
         public string Slug { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
-        
+        public DateTime? UpdatedAt { get; set; }
+
         // Navigation
         public ICollection<ArticleTag> ArticleTags { get; set; }
     }

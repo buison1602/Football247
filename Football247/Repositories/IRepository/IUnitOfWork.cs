@@ -4,6 +4,7 @@
     {
         ICategoryRepository CategoryRepository { get; }
         IArticleRepository ArticleRepository { get; }
+        ITagRepository TagRepository { get; }
         Task SaveAsync();
     }
 }
