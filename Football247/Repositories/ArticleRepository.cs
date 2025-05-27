@@ -23,6 +23,7 @@ namespace Football247.Repositories
                 .Include("Category")
                 .Include("Creator")
                 .Where(e => e.Category.Slug == categorySlug)
+                .OrderByDescending(a => a.CreatedAt)
                 .Skip((page - 1) * limit)
                 .Take(limit)
                 .ToListAsync();
@@ -50,6 +51,7 @@ namespace Football247.Repositories
                 .Include("Category")
                 .Include("Creator")
                 .Where(e => e.Category.Slug == tagSlug)
+                .OrderByDescending(a => a.CreatedAt)
                 .Skip((page - 1) * limit)
                 .Take(limit)
                 .ToListAsync();
@@ -101,6 +103,7 @@ namespace Football247.Repositories
             return await _db.Articles
                 .Include("Category")
                 .Include("Creator")
+                .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
         }
     }
