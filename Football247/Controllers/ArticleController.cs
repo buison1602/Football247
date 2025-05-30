@@ -190,6 +190,11 @@ namespace Football247.Controllers
                     return BadRequest();
                 }
                 _memoryCache.Remove(CacheKey);
+
+                // Sau khi tạo thành công, lấy lại thông tin bài viết để trả về để gán
+                // giá trị cho Tag và Article trong ArticleTag thông qua include
+                articleDomain = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleDomain.Slug);
+
                 ArticleDto articleDto = _mapper.Map<ArticleDto>(articleDomain);
 
                 return CreatedAtAction(nameof(GetBySlug), new { categorySlug = articleDomain.Category.Slug, articleSlug = articleDto.Slug }, articleDto);

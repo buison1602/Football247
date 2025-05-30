@@ -8,7 +8,21 @@ namespace Football247.Mappings
     {
         public ArticleProfile() 
         {
-            CreateMap<AddArticleRequestDto, Article>().ReverseMap();
+            CreateMap<AddArticleRequestDto, Article>()
+            //.ForMember(dest => dest.Id, opt => opt.MapFrom(src => Guid.NewGuid()))
+            .AfterMap((src, dest) => {
+                if (src.TagIds != null)
+                {
+                    dest.ArticleTags = src.TagIds
+                        .Select(tagId => new ArticleTag { TagId = tagId, ArticleId = dest.Id })
+                        .ToList();
+                }
+                else
+                {
+                    dest.ArticleTags = new List<ArticleTag>();
+                }
+            });
+
             CreateMap<UpdateArticleRequestDto, Article>().ReverseMap();
             CreateMap<DeleteArticleRequestDto, Article>().ReverseMap();
 
@@ -17,8 +31,15 @@ namespace Football247.Mappings
                            opt => opt.MapFrom(src => src.Creator != null ? src.Creator.FullName : null))
                 .ForMember(dest => dest.CategoryName,
                            opt => opt.MapFrom(src => src.Category != null ? src.Category.Name : null))
-                .ForMember(dest => dest.Tags,
-                           opt => opt.MapFrom(src => src.ArticleTags.Select(at => at.Tag.Name).ToList()));
+                // dest.Tags bây giờ là List<TagDto>
+                .ForMember(dest => dest.Tags, 
+                           opt => opt.MapFrom(src => (src.ArticleTags != null)
+                                                     ? src.ArticleTags
+                                                         .Where(at => at.Tag != null) // Chỉ lấy các ArticleTag có Tag không null
+                                                         .Select(at => at.Tag)        // Lấy ra đối tượng Tag
+                                                         .ToList()                    // Kết quả là List<Tag>
+                                                     : new List<Tag>()));       // Nếu ArticleTags là null, trả về List<Tag> rỗng
+                                                                                 // AutoMapper sẽ tự động áp dụng map Tag -> TagDto cho từng item
 
             // Used when multiple articles need to be returned
             CreateMap<Article, ArticlesDto>()

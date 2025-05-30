@@ -22,6 +22,8 @@ namespace Football247.Repositories
             List<Article> articles = await _db.Articles
                 .Include("Category")
                 .Include("Creator")
+                .Include(a => a.ArticleTags)
+                    .ThenInclude(at => at.Tag)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                 .Where(e => e.Category.Slug == categorySlug)
                 .OrderByDescending(a => a.CreatedAt)
                 .Skip((page - 1) * limit)
@@ -36,6 +38,9 @@ namespace Football247.Repositories
             var existingEntity = await _db.Articles
                 .Include("Category")
                 .Include("Creator")
+                .Include(a => a.ArticleTags)
+                    // Tải đối tượng Tag liên quan đến TỪNG ArticleTag trong danh sách ArticleTags
+                    .ThenInclude(at => at.Tag) 
                 .FirstOrDefaultAsync(u => u.Slug == slug);
             if (existingEntity == null)
             {
@@ -50,6 +55,8 @@ namespace Football247.Repositories
             List<Article> articles = await _db.Articles
                 .Include("Category")
                 .Include("Creator")
+                .Include(a => a.ArticleTags)
+                    .ThenInclude(at => at.Tag)
                 .Where(e => e.Category.Slug == tagSlug)
                 .OrderByDescending(a => a.CreatedAt)
                 .Skip((page - 1) * limit)
@@ -91,7 +98,7 @@ namespace Football247.Repositories
             await _db.Articles.AddAsync(entity);
             await _db.SaveChangesAsync();
 
-            // Tải Category để sử dụng sau này (nếu cần)
+            // Tải Category và Creator để sử dụng sau này (nếu cần)
             await _db.Entry(entity).Reference(a => a.Category).LoadAsync();
             await _db.Entry(entity).Reference(a => a.Creator).LoadAsync();
 
@@ -103,6 +110,8 @@ namespace Football247.Repositories
             return await _db.Articles
                 .Include("Category")
                 .Include("Creator")
+                .Include(a => a.ArticleTags)
+                    .ThenInclude(at => at.Tag)
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
         }

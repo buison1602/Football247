@@ -1,4 +1,6 @@
-﻿namespace Football247.Models.DTOs.Article
+﻿using Football247.Models.DTOs.Tag;
+
+namespace Football247.Models.DTOs.Article
 {
     public class ArticleDto
     {
@@ -28,9 +30,11 @@
         public string CreatorName { get; set; } 
 
         public Guid CategoryId { get; set; }
-        public string CategoryName { get; set; } 
+        public string CategoryName { get; set; }
 
         // Tags
-        public List<string> Tags { get; set; } = new();
+        //public List<string> Tags { get; set; } = new();
+        public List<TagDto> Tags { get; set; } = new List<TagDto>();
+
     }
 }
