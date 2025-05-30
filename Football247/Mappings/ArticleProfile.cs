@@ -12,8 +12,6 @@ namespace Football247.Mappings
             CreateMap<UpdateArticleRequestDto, Article>().ReverseMap();
             CreateMap<DeleteArticleRequestDto, Article>().ReverseMap();
 
-            //CreateMap<Article, ArticleDto>().ReverseMap();
-            // Article -> ArticleDto
             CreateMap<Article, ArticleDto>()
                 .ForMember(dest => dest.CreatorName,
                            opt => opt.MapFrom(src => src.Creator != null ? src.Creator.FullName : null))
@@ -21,6 +19,13 @@ namespace Football247.Mappings
                            opt => opt.MapFrom(src => src.Category != null ? src.Category.Name : null))
                 .ForMember(dest => dest.Tags,
                            opt => opt.MapFrom(src => src.ArticleTags.Select(at => at.Tag.Name).ToList()));
+
+            // Used when multiple articles need to be returned
+            CreateMap<Article, ArticlesDto>()
+                .ForMember(dest => dest.BgrImg,
+                           opt => opt.MapFrom(src =>
+                               (src.BgrImg != null && src.BgrImg.Any()) ? src.BgrImg.FirstOrDefault() : null
+                           ));
         }
     }
 }

@@ -54,9 +54,9 @@ namespace Football247.Controllers
                     _memoryCache.Set(CacheKey, articles, cacheEntryOptions);
                 }
 
-                List<ArticleDto> articleDtos = _mapper.Map<List<ArticleDto>>(articles);
+                List<ArticlesDto> articlesDtos = _mapper.Map<List<ArticlesDto>>(articles);
 
-                return Ok(articleDtos);
+                return Ok(articlesDtos);
             }
             catch (Exception ex)
             {
@@ -92,8 +92,8 @@ namespace Football247.Controllers
                     _memoryCache.Set(NewCacheKey, articles, cacheEntryOptions);
                 }
 
-                List<ArticleDto> articleDtos = _mapper.Map<List<ArticleDto>>(articles);
-                return Ok(articleDtos);
+                List<ArticlesDto> articlesDtos = _mapper.Map<List<ArticlesDto>>(articles);
+                return Ok(articlesDtos);
             }
             catch (Exception ex) 
             {
@@ -130,8 +130,8 @@ namespace Football247.Controllers
                     _memoryCache.Set(NewCacheKey, articles, cacheEntryOptions);
                 }
 
-                List<ArticleDto> articleDtos = _mapper.Map<List<ArticleDto>>(articles);
-                return Ok(articleDtos);
+                List<ArticlesDto> articlesDtos = _mapper.Map<List<ArticlesDto>>(articles);
+                return Ok(articlesDtos);
             }
             catch (Exception ex)
             {
