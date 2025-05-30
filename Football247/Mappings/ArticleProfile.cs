@@ -13,6 +13,7 @@ namespace Football247.Mappings
             .AfterMap((src, dest) => {
                 if (src.TagIds != null)
                 {
+                    // Chuyển đổi TagIds thành danh sách ArticleTag
                     dest.ArticleTags = src.TagIds
                         .Select(tagId => new ArticleTag { TagId = tagId, ArticleId = dest.Id })
                         .ToList();

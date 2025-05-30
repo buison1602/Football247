@@ -33,6 +33,8 @@ namespace Football247.Models.Entities
 
         public Category Category { get; set; }
 
+        // Dùng ArticleTags để tải CÁC Tag liên quan đến Article
+        // Nhập vào TagId và ArticleId nên sẽ tạo ra CÁC bản ghi ArticleTag - Xem ở ArticleProfile
         public ICollection<ArticleTag> ArticleTags { get; set; }
     }
 }
