@@ -1,6 +1,8 @@
 ﻿using AutoMapper;
+using Azure.Core;
 using Football247.Models.DTOs.Article;
 using Football247.Models.DTOs.Category;
+using Football247.Models.DTOs.Image;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
 using Microsoft.AspNetCore.Http;
@@ -178,7 +180,7 @@ namespace Football247.Controllers
 
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] AddArticleRequestDto addArticleRequestDto)
+        public async Task<IActionResult> Create([FromForm] AddArticleRequestDto addArticleRequestDto)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
             try
@@ -196,6 +198,29 @@ namespace Football247.Controllers
                 articleDomain = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleDomain.Slug);
 
                 ArticleDto articleDto = _mapper.Map<ArticleDto>(articleDomain);
+
+
+                // Xử lý ảnh nền (background images) cho bài viết
+                if (addArticleRequestDto.BgrImgs != null && addArticleRequestDto.BgrImgs.Any() &&
+                    addArticleRequestDto.Captions != null && addArticleRequestDto.Captions.Any())
+                {
+                    int count = addArticleRequestDto.BgrImgs.Count;
+                    for (int i = 0; i < count; i++)
+                    {
+                        var imageDomain = new Image
+                        {
+                            File = addArticleRequestDto.BgrImgs[i],
+                            ImageExtension = Path.GetExtension(addArticleRequestDto.BgrImgs[i].FileName),
+                            Caption = addArticleRequestDto.Captions[i],
+                            DisplayOrder = i,
+                            ArticleId = articleDomain.Id,
+                        };
+                        imageDomain = await _unitOfWork.ImageRepository.Upload(imageDomain, articleDomain.Slug);
+                        
+                        var imageDto = _mapper.Map<ImageDto>(imageDomain);
+                        articleDto.Images.Add(imageDto);
+                    }
+                }
 
                 return CreatedAtAction(nameof(GetBySlug), new { categorySlug = articleDomain.Category.Slug, articleSlug = articleDto.Slug }, articleDto);
             }

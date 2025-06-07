@@ -4,6 +4,7 @@ using Football247.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Football247.Migrations
 {
     [DbContext(typeof(Football247DbContext))]
-    partial class Football247DbContextModelSnapshot : ModelSnapshot
+    [Migration("20250606092442_Change Image to Images table")]
+    partial class ChangeImagetoImagestable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -190,10 +193,6 @@ namespace Football247.Migrations
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
 
-                    b.Property<string>("ImageExtension")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ImageUrl")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -214,7 +213,6 @@ namespace Football247.Migrations
                             ArticleId = new Guid("8172ac98-d6fb-4bc3-e672-08dd9a226bbc"),
                             Caption = "Mehdi Taremi trong màu áo Porto",
                             DisplayOrder = 1,
-                            ImageExtension = "jpg",
                             ImageUrl = "/images/sao-inter.jpg",
                             UploadedAt = new DateTime(2025, 5, 7, 16, 38, 39, 658, DateTimeKind.Utc)
                         },
@@ -224,7 +222,6 @@ namespace Football247.Migrations
                             ArticleId = new Guid("8172ac98-d6fb-4bc3-e672-08dd9a226bbc"),
                             Caption = "Phạm Đức Huy trong một pha tranh chấp",
                             DisplayOrder = 2,
-                            ImageExtension = "jpg",
                             ImageUrl = "/images/duc-huy.jpg",
                             UploadedAt = new DateTime(2025, 5, 7, 16, 38, 39, 658, DateTimeKind.Utc)
                         });

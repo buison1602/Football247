@@ -24,8 +24,12 @@ namespace Football247.Models.DTOs.Article
 
         [Required]
         [MinLength(1, ErrorMessage = "Must have at least one photo.")]
-        public List<string> BgrImg { get; set; }
-        
+        public List<IFormFile> BgrImgs { get; set; } = new List<IFormFile>();
+
+        [Required]
+        [MinLength(1, ErrorMessage = "Must have at least one caption.")]
+        public List<string> Captions { get; set; } = new List<string>();
+
         public byte IsApproved { get; set; } = 0;
 
         [Required]

@@ -82,7 +82,6 @@ namespace Football247.Repositories
             existingEntity.Slug = category.Slug;
             existingEntity.Description = category.Description;
             existingEntity.Content = category.Content;
-            existingEntity.BgrImg = category.BgrImg;
             existingEntity.ViewCount = category.ViewCount;
             existingEntity.Slug = category.Slug;
             existingEntity.IsApproved = category.IsApproved;

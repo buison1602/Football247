@@ -43,11 +43,11 @@ namespace Football247.Mappings
                                                                                  // AutoMapper sẽ tự động áp dụng map Tag -> TagDto cho từng item
 
             // Used when multiple articles need to be returned
-            CreateMap<Article, ArticlesDto>()
-                .ForMember(dest => dest.BgrImg,
-                           opt => opt.MapFrom(src =>
-                               (src.BgrImg != null && src.BgrImg.Any()) ? src.BgrImg.FirstOrDefault() : null
-                           ));
+            // CreateMap<Article, ArticlesDto>()
+            //    .ForMember(dest => dest.BgrImg,
+            //               opt => opt.MapFrom(src =>
+            //                   (src.BgrImg != null && src.BgrImg.Any()) ? src.BgrImg.FirstOrDefault() : null
+            //               ));
         }
     }
 }

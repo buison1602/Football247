@@ -3,6 +3,7 @@ using Football247.Mappings;
 using Football247.Repositories;
 using Football247.Repositories.IRepository;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Để sử dụng IHttpContextAccessor trong các lớp khác như repository, service, ...
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddDbContext<Football247DbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Football247ConnectionString")));
@@ -42,6 +45,16 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+
+// Dòng code này nhằm cấu hình ASP.NET Core để phục vụ (serve) các file tĩnh từ thư mục Images, nằm trong gốc của dự án.
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "Images")),
+    RequestPath = "/Images"
+    // https://Localhost:1234/Images
+
+});
 
 app.MapControllers();
 

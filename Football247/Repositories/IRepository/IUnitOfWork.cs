@@ -5,6 +5,7 @@
         ICategoryRepository CategoryRepository { get; }
         IArticleRepository ArticleRepository { get; }
         ITagRepository TagRepository { get; }
+        IImageRepository ImageRepository { get; }
         Task SaveAsync();
     }
 }

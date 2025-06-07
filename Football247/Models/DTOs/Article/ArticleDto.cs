@@ -1,4 +1,5 @@
-﻿using Football247.Models.DTOs.Tag;
+﻿using Football247.Models.DTOs.Image;
+using Football247.Models.DTOs.Tag;
 
 namespace Football247.Models.DTOs.Article
 {
@@ -31,8 +32,9 @@ namespace Football247.Models.DTOs.Article
 
         public Guid CategoryId { get; set; }
         public string CategoryName { get; set; }
+       
 
         public List<TagDto> Tags { get; set; } = new List<TagDto>();
-
+        public List<ImageDto> Images { get; set; } = new List<ImageDto>();
     }
 }
