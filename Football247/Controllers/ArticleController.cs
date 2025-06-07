@@ -186,6 +186,10 @@ namespace Football247.Controllers
             try
             {
                 var articleDomain = _mapper.Map<Article>(addArticleRequestDto);
+
+                // Validate the image file
+                _unitOfWork.ImageRepository.ValidateFileUpload(addArticleRequestDto.BgrImgs, addArticleRequestDto.Captions);
+                
                 articleDomain = await _unitOfWork.ArticleRepository.CreateAsync(articleDomain);
                 if (articleDomain == null)
                 {
@@ -196,31 +200,14 @@ namespace Football247.Controllers
                 // Sau khi tạo thành công, lấy lại thông tin bài viết để trả về để gán
                 // giá trị cho Tag và Article trong ArticleTag thông qua include
                 articleDomain = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleDomain.Slug);
-
                 ArticleDto articleDto = _mapper.Map<ArticleDto>(articleDomain);
 
-
                 // Xử lý ảnh nền (background images) cho bài viết
-                if (addArticleRequestDto.BgrImgs != null && addArticleRequestDto.BgrImgs.Any() &&
-                    addArticleRequestDto.Captions != null && addArticleRequestDto.Captions.Any())
-                {
-                    int count = addArticleRequestDto.BgrImgs.Count;
-                    for (int i = 0; i < count; i++)
-                    {
-                        var imageDomain = new Image
-                        {
-                            File = addArticleRequestDto.BgrImgs[i],
-                            ImageExtension = Path.GetExtension(addArticleRequestDto.BgrImgs[i].FileName),
-                            Caption = addArticleRequestDto.Captions[i],
-                            DisplayOrder = i,
-                            ArticleId = articleDomain.Id,
-                        };
-                        imageDomain = await _unitOfWork.ImageRepository.Upload(imageDomain, articleDomain.Slug);
-                        
-                        var imageDto = _mapper.Map<ImageDto>(imageDomain);
-                        articleDto.Images.Add(imageDto);
-                    }
-                }
+                articleDto.Images = await _unitOfWork.ImageRepository.CreateImageDto(
+                    addArticleRequestDto.BgrImgs,
+                    addArticleRequestDto.Captions,
+                    articleDomain.Id,
+                    articleDomain.Slug);
 
                 return CreatedAtAction(nameof(GetBySlug), new { categorySlug = articleDomain.Category.Slug, articleSlug = articleDto.Slug }, articleDto);
             }

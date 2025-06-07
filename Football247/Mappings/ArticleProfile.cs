@@ -40,14 +40,18 @@ namespace Football247.Mappings
                                                          .Select(at => at.Tag)        // Lấy ra đối tượng Tag
                                                          .ToList()                    // Kết quả là List<Tag>
                                                      : new List<Tag>()));       // Nếu ArticleTags là null, trả về List<Tag> rỗng
-                                                                                 // AutoMapper sẽ tự động áp dụng map Tag -> TagDto cho từng item
+                                                                                // AutoMapper sẽ tự động áp dụng map Tag -> TagDto cho từng item
 
             // Used when multiple articles need to be returned
-            // CreateMap<Article, ArticlesDto>()
-            //    .ForMember(dest => dest.BgrImg,
-            //               opt => opt.MapFrom(src =>
-            //                   (src.BgrImg != null && src.BgrImg.Any()) ? src.BgrImg.FirstOrDefault() : null
-            //               ));
+            CreateMap<Article, ArticlesDto>()
+               .ForMember(dest => dest.BgrImg,
+                    opt => opt.MapFrom(src => src.Images != null && src.Images.Any()
+                        ? src.Images.OrderBy(img => img.DisplayOrder).FirstOrDefault()!.ImageUrl 
+                        : null))
+               .ForMember(dest => dest.Tags, 
+                    opt => opt.MapFrom(src => src.ArticleTags != null
+                        ? src.ArticleTags.Select(at => at.Tag.Name).ToList() 
+                        : new List<string>()));
         }
     }
 }

@@ -15,5 +15,7 @@
         public string BgrImg { get; set; }
 
         public DateTime CreatedAt { get; set; }
+
+        public List<string> Tags { get; set; } = new List<string>();
     }
 }

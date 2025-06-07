@@ -22,7 +22,7 @@ namespace Football247.Repositories
             return entity;
         }
 
-        public async Task<T?> DeleteAsync(Guid id)
+        public virtual async Task<T?> DeleteAsync(Guid id)
         {
             var existingEntity = await _dbSet.FindAsync(id);
             if (existingEntity == null)

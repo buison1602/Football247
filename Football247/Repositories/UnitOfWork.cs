@@ -18,7 +18,7 @@ namespace Football247.Repositories
         {
             _db = db;
             CategoryRepository = new CategoryRepository(_db);
-            ArticleRepository = new ArticleRepository(_db);
+            ArticleRepository = new ArticleRepository(_db, _webHostEnvironment);
             TagRepository = new TagRepository(_db);
             ImageRepository = new ImageRepository(_db, _webHostEnvironment, _httpContextAccessor);
         }
