@@ -143,7 +143,7 @@ namespace Football247.Repositories
                 {
                     // Lấy tên file từ URL. Ví dụ: "https://localhost:7087/Images/articleDto-0.jpg" -> "articleDto-0.jpg"
                     var fileName = Path.GetFileName(image.ImageUrl);
-                    // Xây dựng đường dẫn vật lý đến file trong thư mục wwwroot/Images
+                    // Xây dựng đường dẫn vật lý đến file trong thư mục /Images/
                     var imagePath = Path.Combine(_webHostEnvironment.ContentRootPath, "Images", fileName);
 
                     if (File.Exists(imagePath))
@@ -151,7 +151,6 @@ namespace Football247.Repositories
                         try
                         {
                             File.Delete(imagePath);
-                            // Bạn có thể log thông tin xóa file thành công ở đây
                         }
                         catch (IOException ex)
                         {
@@ -161,8 +160,6 @@ namespace Football247.Repositories
                         }
                     }
                 }
-
-
                 _db.Images.RemoveRange(existingEntity.Images);
             }
 

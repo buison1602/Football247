@@ -2,6 +2,7 @@
 using Football247.Models.DTOs.Category;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -133,6 +134,7 @@ namespace Football247.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] AddCategoryRequestDto addCategoryRequestDto)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
@@ -159,6 +161,7 @@ namespace Football247.Controllers
 
         [HttpPut]
         [Route("{id:Guid}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCategoryRequestDto updateCategoryRequestDto)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
@@ -184,6 +187,7 @@ namespace Football247.Controllers
 
         [HttpDelete]
         [Route("{id:Guid}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(Guid id)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");

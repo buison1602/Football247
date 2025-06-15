@@ -5,6 +5,7 @@ using Football247.Models.DTOs.Category;
 using Football247.Models.DTOs.Image;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -144,10 +145,13 @@ namespace Football247.Controllers
 
 
         [HttpGet]
-        [Route("{categorySlug}/{articleSlug}")]
-        public async Task<IActionResult> GetBySlug(string categorySlug, string articleSlug)
+        //[Route("{categorySlug}/{articleSlug}")]
+        [Route("list/{articleSlug}")]
+        public async Task<IActionResult> GetBySlug(string articleSlug)
         {
-            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with categorySlug: {categorySlug}, articleSlug: {articleSlug}");
+            //_logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with categorySlug: {categorySlug}, articleSlug: {articleSlug}");
+            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with articleSlug: {articleSlug}");
+
             try
             {
                 Article? articleDomain;
@@ -161,7 +165,8 @@ namespace Football247.Controllers
                     articleDomain = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleSlug);
                     if (articleDomain == null)
                     {
-                        _logger.LogWarning($"No article found for categorySlug: {categorySlug}, articleSlug: {articleSlug}");
+                        //_logger.LogWarning($"No article found for categorySlug: {categorySlug}, articleSlug: {articleSlug}");
+                        _logger.LogWarning($"No article found for articleSlug: {articleSlug}");
                         return NotFound();
                     }
                     var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromHours(2));
@@ -180,6 +185,7 @@ namespace Football247.Controllers
 
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromForm] AddArticleRequestDto addArticleRequestDto)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
@@ -203,6 +209,7 @@ namespace Football247.Controllers
                 ArticleDto articleDto = _mapper.Map<ArticleDto>(articleDomain);
 
                 // Xử lý ảnh nền (background images) cho bài viết
+                // Đã Upload image
                 articleDto.Images = await _unitOfWork.ImageRepository.CreateImageDto(
                     addArticleRequestDto.BgrImgs,
                     addArticleRequestDto.Captions,
@@ -221,6 +228,7 @@ namespace Football247.Controllers
 
         [HttpPut]
         [Route("{id:guid}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateArticleRequestDto updateArticleRequestDto)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with id: {id}");
@@ -246,6 +254,7 @@ namespace Football247.Controllers
 
         [HttpDelete]
         [Route("{id:guid}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(Guid id)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with id: {id}");
