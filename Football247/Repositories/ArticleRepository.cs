@@ -1,4 +1,5 @@
-﻿using Football247.Data;
+﻿using Football247.Controllers;
+using Football247.Data;
 using Football247.Helper;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Football247.Repositories
 {
@@ -13,10 +15,13 @@ namespace Football247.Repositories
     {
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly Football247DbContext _db;
-        public ArticleRepository(Football247DbContext db, IWebHostEnvironment webHostEnvironment) : base(db)
+        private readonly ILogger<ArticleRepository> _logger;
+
+        public ArticleRepository(Football247DbContext db, IWebHostEnvironment webHostEnvironment, ILogger<ArticleRepository> logger) : base(db)
         {
             _db = db;
             _webHostEnvironment = webHostEnvironment;
+            _logger = logger;
         }
 
         public async Task<List<Article>> GetByCategoryAsync(string categorySlug, int page)
@@ -155,7 +160,7 @@ namespace Football247.Repositories
                         catch (IOException ex)
                         {
                             // Xử lý lỗi nếu file đang được sử dụng hoặc có vấn đề về quyền truy cập
-                            // Logger.LogError($"Error deleting image file {imagePath}: {ex.Message}");
+                            _logger.LogError($"Error deleting image file {imagePath}: {ex.Message}");
                             // Tùy thuộc vào yêu cầu, bạn có thể ném lại ngoại lệ hoặc bỏ qua để tiếp tục xóa Article trong DB
                         }
                     }

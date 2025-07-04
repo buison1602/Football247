@@ -4,6 +4,7 @@ using Football247.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Football247.Migrations.Football247AuthDb
 {
     [DbContext(typeof(Football247AuthDbContext))]
-    partial class Football247AuthDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250704180357_UpdateRefreshTokenSchema")]
+    partial class UpdateRefreshTokenSchema
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

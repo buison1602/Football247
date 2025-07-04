@@ -74,14 +74,15 @@ builder.Services.AddDbContext<Football247AuthDbContext>(options =>
 
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>() 
-    .AddEntityFrameworkStores<Football247AuthDbContext>().AddDefaultTokenProviders();
-
-// Setting Up Identity 
-builder.Services.AddIdentityCore<IdentityUser>()
-    .AddRoles<IdentityRole>()
-    .AddTokenProvider<DataProtectorTokenProvider<IdentityUser>>("Football247")
     .AddEntityFrameworkStores<Football247AuthDbContext>()
     .AddDefaultTokenProviders();
+
+// Setting Up Identity 
+//builder.Services.AddIdentityCore<IdentityUser>()
+//    .AddRoles<IdentityRole>()
+//    .AddTokenProvider<DataProtectorTokenProvider<IdentityUser>>("Football247")
+//    .AddEntityFrameworkStores<Football247AuthDbContext>()
+//    .AddDefaultTokenProviders();
 
 // Cấu hình Quy tắc cho Mật khẩu
 builder.Services.Configure<IdentityOptions>(options =>
@@ -91,23 +92,31 @@ builder.Services.Configure<IdentityOptions>(options =>
     options.Password.RequireNonAlphanumeric = true;
     options.Password.RequireUppercase = true;
     options.Password.RequiredLength = 6;
-    options.Password.RequiredUniqueChars = 4;
+    options.Password.RequiredUniqueChars = 1;
 });
 
 // * ĐĂNG KÝ Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
     .AddJwtBearer(options =>
-        options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-        });
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                ValidAudience = builder.Configuration["Jwt:Audience"],
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            };
+        }
+);
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -125,13 +134,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<ExceptionHandlerMiddleware>();
-
 app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.UseAuthorization();
-
 
 // Dòng code này nhằm cấu hình ASP.NET Core để phục vụ (serve) các file tĩnh từ thư mục Images, nằm trong gốc của dự án.
 app.UseStaticFiles(new StaticFileOptions
@@ -141,6 +144,10 @@ app.UseStaticFiles(new StaticFileOptions
     // https://Localhost:1234/Images
 
 });
+
+app.UseAuthentication();
+
+app.UseAuthorization();
 
 app.MapControllers();
 
