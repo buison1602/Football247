@@ -15,6 +15,9 @@ namespace Football247.Data
         public DbSet<Tag> Tags { get; set; }
         public DbSet<ArticleTag> ArticleTags { get; set; }
         public DbSet<Image> Images { get; set; }
+        public DbSet<Comment> Comments { get; set; }
+        public DbSet<ApplicationUser> ApplicationUsers { get; set; }
+
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

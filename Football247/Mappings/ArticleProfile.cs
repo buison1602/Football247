@@ -29,7 +29,7 @@ namespace Football247.Mappings
 
             CreateMap<Article, ArticleDto>()
                 .ForMember(dest => dest.CreatorName,
-                           opt => opt.MapFrom(src => src.Creator != null ? src.Creator.FullName : null))
+                           opt => opt.MapFrom(src => src.Creator != null ? src.Creator.UserName : null))
                 .ForMember(dest => dest.CategoryName,
                            opt => opt.MapFrom(src => src.Category != null ? src.Category.Name : null))
                 // dest.Tags bây giờ là List<TagDto>

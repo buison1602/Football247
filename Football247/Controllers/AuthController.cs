@@ -20,16 +20,14 @@ namespace Football247.Controllers
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly Football247AuthDbContext _authDbContext;
-        private readonly IConfiguration _configuration;
+        private readonly Football247DbContext _appDbContext;
 
-        public AuthController(UserManager<ApplicationUser> userManager, IUnitOfWork unitOfWork, 
-            Football247AuthDbContext authDbContext, IConfiguration configuration)
+        public AuthController(UserManager<ApplicationUser> userManager, IUnitOfWork unitOfWork,
+            Football247DbContext appDbContext)
         {
             this._userManager = userManager;
             this._unitOfWork = unitOfWork;
-            this._authDbContext = authDbContext;
-            this._configuration = configuration;
+            this._appDbContext = appDbContext;
         }
 
 
@@ -43,18 +41,22 @@ namespace Football247.Controllers
                 UserName = registerRequestDto.Email
             };
 
-            Console.WriteLine("/n/n------------------------------/n/n");
-            Console.WriteLine("identityUser  " + identityUser.Email);
-            Console.WriteLine("identityUser  " + identityUser.UserName);
-            Console.WriteLine("identityUser  " + registerRequestDto.Password);
-            Console.WriteLine("/n/n------------------------------/n/n");
-
-
             var identityResult = await _userManager.CreateAsync(identityUser, registerRequestDto.Password);
 
             if (identityResult.Succeeded)
             {
-                identityResult = await _userManager.AddToRoleAsync(identityUser, "User");
+                var appUser = new ApplicationUser
+                {
+                    Id = identityUser.Id, // Dùng lại ID từ người dùng vừa tạo
+                    UserName = identityUser.UserName,
+                    Email = identityUser.Email
+                };
+
+                // Thêm vào DbContext của ứng dụng và lưu lại
+                await _appDbContext.ApplicationUsers.AddAsync(appUser);
+                await _appDbContext.SaveChangesAsync();
+
+                identityResult = await _userManager.AddToRoleAsync(identityUser, "Admin");
 
                 if (identityResult.Succeeded)
                 {
@@ -62,7 +64,8 @@ namespace Football247.Controllers
                 }
             }
 
-            return BadRequest("User registration failed. Please try again.");
+            var errorMessages = identityResult.Errors.Select(e => e.Description);
+            return BadRequest($"User registration failed: {string.Join(", ", errorMessages)}");
         }
 
         

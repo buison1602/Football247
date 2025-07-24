@@ -7,6 +7,7 @@
         ITagRepository TagRepository { get; }
         IImageRepository ImageRepository { get; }
         ITokenRepository TokenRepository { get; }
+        ICommentRepository CommentRepository { get; }
         Task SaveAsync();
     }
 }

@@ -4,6 +4,9 @@ using Football247.Middleware;
 using Football247.Models.Entities;
 using Football247.Repositories;
 using Football247.Repositories.IRepository;
+using Football247.Services;
+using Football247.Services.IService;
+using Football247.SignalR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +16,8 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddSignalR();
 
 // Add services to the container.
 
@@ -29,6 +34,8 @@ builder.Services.AddSwaggerGen();
 
 // Để sử dụng IHttpContextAccessor trong các lớp khác như repository, service, ...
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddScoped<IRealtimeService, RealtimeService>();
 
 
 // Cấu hình JWT Bearer Authentication
@@ -135,6 +142,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionHandlerMiddleware>();
 app.UseHttpsRedirection();
+
+app.MapHub<Football247Hub>("/football247hub");
 
 // Dòng code này nhằm cấu hình ASP.NET Core để phục vụ (serve) các file tĩnh từ thư mục Images, nằm trong gốc của dự án.
 app.UseStaticFiles(new StaticFileOptions

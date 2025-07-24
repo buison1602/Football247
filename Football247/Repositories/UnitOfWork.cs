@@ -15,6 +15,7 @@ namespace Football247.Repositories
         public ITagRepository TagRepository { get; private set; }
         public IImageRepository ImageRepository { get; private set; }
         public ITokenRepository TokenRepository { get; private set; }
+        public ICommentRepository CommentRepository { get; private set; }
 
         public UnitOfWork(
             Football247DbContext db, 
@@ -31,6 +32,7 @@ namespace Football247.Repositories
             TagRepository = new TagRepository(_db);
             ImageRepository = new ImageRepository(_db, _webHostEnvironment, _httpContextAccessor);
             TokenRepository = new TokenRepository(configuration, authDb, userManager);
+            CommentRepository = new CommentRepository(_db);
         }
         public Task SaveAsync()
         {

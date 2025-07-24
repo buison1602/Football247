@@ -30,7 +30,7 @@ namespace Football247.Models.Entities
         // Navigation
         public ICollection<Image> Images { get; set; }
 
-        public User Creator { get; set; } 
+        public ApplicationUser Creator { get; set; } 
 
         public Category Category { get; set; }
 
