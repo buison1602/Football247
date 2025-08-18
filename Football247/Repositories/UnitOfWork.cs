@@ -17,7 +17,6 @@ namespace Football247.Repositories
         public ITokenRepository TokenRepository { get; private set; }
         public ICommentRepository CommentRepository { get; private set; }
 
-
         public UnitOfWork(
             Football247DbContext db, 
             IWebHostEnvironment _webHostEnvironment,

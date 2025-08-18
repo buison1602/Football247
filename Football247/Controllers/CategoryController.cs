@@ -29,6 +29,7 @@ namespace Football247.Controllers
             _logger = logger;
         }
 
+
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -66,6 +67,7 @@ namespace Football247.Controllers
             } 
         }
 
+
         [HttpGet]
         [Route("{id:Guid}")]
         public async Task<IActionResult> GetById(Guid id)
@@ -98,6 +100,7 @@ namespace Football247.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
 
         [HttpGet]
         [Route("{slug}")]
@@ -133,6 +136,7 @@ namespace Football247.Controllers
             }
         }
 
+
         [HttpPost]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] AddCategoryRequestDto addCategoryRequestDto)
@@ -159,6 +163,7 @@ namespace Football247.Controllers
             }
         }
 
+
         [HttpPut]
         [Route("{id:Guid}")]
         [Authorize(Roles = "Admin")]
@@ -184,6 +189,7 @@ namespace Football247.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
 
         [HttpDelete]
         [Route("{id:Guid}")]
