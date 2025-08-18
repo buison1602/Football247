@@ -2,10 +2,10 @@
 
 #nullable disable
 
-namespace Football247.Migrations.Football247AuthDb
+namespace Football247.Migrations
 {
     /// <inheritdoc />
-    public partial class AddclassRefreshToken : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

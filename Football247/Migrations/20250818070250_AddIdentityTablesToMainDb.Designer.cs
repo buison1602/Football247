@@ -4,6 +4,7 @@ using Football247.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Football247.Migrations
 {
     [DbContext(typeof(Football247DbContext))]
-    partial class Football247DbContextModelSnapshot : ModelSnapshot
+    [Migration("20250818070250_AddIdentityTablesToMainDb")]
+    partial class AddIdentityTablesToMainDb
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -429,22 +432,6 @@ namespace Football247.Migrations
                         .HasFilter("[NormalizedName] IS NOT NULL");
 
                     b.ToTable("AspNetRoles", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = "81470c42-0690-41b4-8b44-d6e388086964",
-                            ConcurrencyStamp = "81470c42-0690-41b4-8b44-d6e388086964",
-                            Name = "Admin",
-                            NormalizedName = "ADMIN"
-                        },
-                        new
-                        {
-                            Id = "79620ca9-0980-410b-96ad-04e05a20e80e",
-                            ConcurrencyStamp = "79620ca9-0980-410b-96ad-04e05a20e80e",
-                            Name = "User",
-                            NormalizedName = "USER"
-                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

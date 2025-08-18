@@ -14,10 +14,10 @@ namespace Football247.Repositories
     public class TokenRepository : ITokenRepository
     {
         private readonly IConfiguration _configuration;
-        private readonly Football247AuthDbContext _authDbContext;
+        private readonly Football247DbContext _authDbContext;
         private readonly UserManager<ApplicationUser> _userManager;
 
-        public TokenRepository(IConfiguration configuration, Football247AuthDbContext authDbContext, UserManager<ApplicationUser> userManager)
+        public TokenRepository(IConfiguration configuration, Football247DbContext authDbContext, UserManager<ApplicationUser> userManager)
         {
             _configuration = configuration;
             _authDbContext = authDbContext;

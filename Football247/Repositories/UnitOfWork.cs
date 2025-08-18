@@ -17,13 +17,13 @@ namespace Football247.Repositories
         public ITokenRepository TokenRepository { get; private set; }
         public ICommentRepository CommentRepository { get; private set; }
 
+
         public UnitOfWork(
             Football247DbContext db, 
             IWebHostEnvironment _webHostEnvironment,
             IHttpContextAccessor _httpContextAccessor, 
             IConfiguration configuration,
             ILoggerFactory loggerFactory,
-            Football247AuthDbContext authDb,
             UserManager<ApplicationUser> userManager)
         {
             _db = db;
@@ -31,7 +31,7 @@ namespace Football247.Repositories
             ArticleRepository = new ArticleRepository(_db, _webHostEnvironment, loggerFactory.CreateLogger<ArticleRepository>());
             TagRepository = new TagRepository(_db);
             ImageRepository = new ImageRepository(_db, _webHostEnvironment, _httpContextAccessor);
-            TokenRepository = new TokenRepository(configuration, authDb, userManager);
+            TokenRepository = new TokenRepository(configuration, _db, userManager);
             CommentRepository = new CommentRepository(_db);
         }
         public Task SaveAsync()

@@ -11,6 +11,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Google.Apis.Auth;
+using Microsoft.Extensions.Configuration;
 
 namespace Football247.Controllers
 {
@@ -21,13 +23,17 @@ namespace Football247.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IUnitOfWork _unitOfWork;
         private readonly Football247DbContext _appDbContext;
+        private readonly IConfiguration _configuration;
 
-        public AuthController(UserManager<ApplicationUser> userManager, IUnitOfWork unitOfWork,
-            Football247DbContext appDbContext)
+        public AuthController(UserManager<ApplicationUser> userManager, 
+            IUnitOfWork unitOfWork,
+            Football247DbContext appDbContext,
+            IConfiguration configuration)
         {
             this._userManager = userManager;
             this._unitOfWork = unitOfWork;
             this._appDbContext = appDbContext;
+            this._configuration = configuration;
         }
 
 
@@ -45,18 +51,7 @@ namespace Football247.Controllers
 
             if (identityResult.Succeeded)
             {
-                var appUser = new ApplicationUser
-                {
-                    Id = identityUser.Id, // Dùng lại ID từ người dùng vừa tạo
-                    UserName = identityUser.UserName,
-                    Email = identityUser.Email
-                };
-
-                // Thêm vào DbContext của ứng dụng và lưu lại
-                await _appDbContext.ApplicationUsers.AddAsync(appUser);
-                await _appDbContext.SaveChangesAsync();
-
-                identityResult = await _userManager.AddToRoleAsync(identityUser, "Admin");
+                identityResult = await _userManager.AddToRoleAsync(identityUser, "User");
 
                 if (identityResult.Succeeded)
                 {
@@ -123,6 +118,96 @@ namespace Football247.Controllers
 
             // Trường hợp này hiếm khi xảy ra, nhưng vẫn có thể có
             return BadRequest(new { Error = "Unable to log out." });
+        }
+
+
+        [HttpPost]
+        [Route("google-login")]
+        [AllowAnonymous] 
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto request)
+        {
+            if (string.IsNullOrEmpty(request.IdToken))
+            {
+                return BadRequest("Google ID Token is required.");
+            }
+
+            try
+            {
+                // 4. Lấy Client ID từ configuration thay vì hard-code
+                var clientId = _configuration["Authentication:Google:ClientId"];
+
+                if (string.IsNullOrEmpty(clientId))
+                {
+                    // Log lỗi và trả về 500 vì server cấu hình thiếu
+                    // Log.Error("Google ClientId is not configured in appsettings.json");
+                    return StatusCode(StatusCodes.Status500InternalServerError, "Authentication is not configured correctly.");
+                }
+  
+                // 1. Xác thực IdToken với Google
+                var validationSettings = new GoogleJsonWebSignature.ValidationSettings()
+                {
+                    Audience = new[] { clientId },
+                };
+
+                var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, validationSettings);
+
+                // 2. Kiểm tra xem người dùng đã tồn tại trong DB chưa
+                var user = await _userManager.FindByEmailAsync(payload.Email);
+
+                // 3. Nếu người dùng đã tồn tại -> Đăng nhập và trả về token
+                if (user != null)
+                {
+                    // Kiểm tra xem user này đã liên kết với Google login chưa
+                    var userLogins = await _userManager.GetLoginsAsync(user);
+                    var googleLogin = userLogins.FirstOrDefault(l => l.LoginProvider == "Google" && l.ProviderKey == payload.Subject);
+
+                    if (googleLogin == null)
+                    {
+                        // Nếu chưa, thêm thông tin đăng nhập Google vào cho user đã có
+                        await _userManager.AddLoginAsync(user, new UserLoginInfo("Google", payload.Subject, "Google"));
+                    }
+
+                    // Tạo token của hệ thống và trả về
+                    var tokens = await _unitOfWork.TokenRepository.CreateTokensAsync(user);
+                    return Ok(tokens);
+                }
+
+                // 4. Nếu người dùng chưa tồn tại -> Tạo người dùng mới
+                var newUser = new ApplicationUser
+                {
+                    Email = payload.Email,
+                    UserName = payload.Email, // Hoặc payload.Name
+                    EmailConfirmed = payload.EmailVerified // Dùng trạng thái xác thực từ Google
+                };
+
+                var identityResult = await _userManager.CreateAsync(newUser);
+
+                if (identityResult.Succeeded)
+                {
+                    // Gán role mặc định cho người dùng đăng nhập bằng Google
+                    // Lưu ý: Không nên gán "Admin" làm mặc định
+                    await _userManager.AddToRoleAsync(newUser, "User"); 
+
+                    // Liên kết tài khoản mới với nhà cung cấp Google
+                    await _userManager.AddLoginAsync(newUser, new UserLoginInfo("Google", payload.Subject, "Google"));
+
+                    // Tạo token của hệ thống và trả về
+                    var tokens = await _unitOfWork.TokenRepository.CreateTokensAsync(newUser);
+                    return Ok(tokens);
+                }
+
+                // Nếu tạo user thất bại
+                var errorMessages = identityResult.Errors.Select(e => e.Description);
+                return BadRequest($"User creation failed: {string.Join(", ", errorMessages)}");
+            }
+            catch (InvalidJwtException ex)
+            {
+                return BadRequest($"Invalid Google Token: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            }
         }
     }
 }

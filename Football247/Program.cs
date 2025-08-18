@@ -30,7 +30,6 @@ builder.Services.AddLogging(logging =>
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 // Để sử dụng IHttpContextAccessor trong các lớp khác như repository, service, ...
 builder.Services.AddHttpContextAccessor();
@@ -64,7 +63,7 @@ builder.Services.AddSwaggerGen(options =>
                     Type = ReferenceType.SecurityScheme, 
                     Id = JwtBearerDefaults.AuthenticationScheme
                 },
-                Scheme = "Oauth2",
+                Scheme = "Bearer",
                 Name = JwtBearerDefaults.AuthenticationScheme, 
                 In = ParameterLocation.Header,
             },
@@ -76,20 +75,11 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<Football247DbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Football247ConnectionString")));
 
-builder.Services.AddDbContext<Football247AuthDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("Football247AuthConnectionString")));
-
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>() 
-    .AddEntityFrameworkStores<Football247AuthDbContext>()
+    .AddEntityFrameworkStores<Football247DbContext>()
     .AddDefaultTokenProviders();
 
-// Setting Up Identity 
-//builder.Services.AddIdentityCore<IdentityUser>()
-//    .AddRoles<IdentityRole>()
-//    .AddTokenProvider<DataProtectorTokenProvider<IdentityUser>>("Football247")
-//    .AddEntityFrameworkStores<Football247AuthDbContext>()
-//    .AddDefaultTokenProviders();
 
 // Cấu hình Quy tắc cho Mật khẩu
 builder.Services.Configure<IdentityOptions>(options =>
@@ -123,7 +113,23 @@ builder.Services.AddAuthentication(options =>
                     Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
             };
         }
+    )
+    .AddGoogle(googleOptions =>
+    {
+        googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
+        googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+    }
 );
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Dev", policy =>
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials()   
+    );
+});
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -141,23 +147,32 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<ExceptionHandlerMiddleware>();
+
 app.UseHttpsRedirection();
 
-app.MapHub<Football247Hub>("/football247hub");
-
-// Dòng code này nhằm cấu hình ASP.NET Core để phục vụ (serve) các file tĩnh từ thư mục Images, nằm trong gốc của dự án.
+// Phục vụ file tĩnh (ví dụ: hình ảnh)
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "Images")),
     RequestPath = "/Images"
-    // https://Localhost:1234/Images
-
 });
 
+// Bật cơ chế định tuyến (Routing)
+app.UseRouting();
+
+// Áp dụng chính sách CORS - Đặt sau UseRouting và trước UseAuthentication/UseAuthorization
+app.UseCors("Dev");
+
+// Xác thực người dùng
 app.UseAuthentication();
 
+// Quyền hạn của người dùng
 app.UseAuthorization();
 
+// Map các controller endpoints
 app.MapControllers();
+
+// Map các SignalR hub endpoints
+app.MapHub<Football247Hub>("/football247hub");
 
 app.Run();

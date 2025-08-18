@@ -1,10 +1,12 @@
 ﻿using Football247.Models.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 
 namespace Football247.Data
 {
-    public class Football247DbContext : DbContext 
+    public class Football247DbContext : IdentityDbContext<ApplicationUser> 
     {
         public Football247DbContext(DbContextOptions<Football247DbContext> dbContextOptions) : base(dbContextOptions)
         {
@@ -16,7 +18,8 @@ namespace Football247.Data
         public DbSet<ArticleTag> ArticleTags { get; set; }
         public DbSet<Image> Images { get; set; }
         public DbSet<Comment> Comments { get; set; }
-        public DbSet<ApplicationUser> ApplicationUsers { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
+
 
 
 
@@ -26,6 +29,29 @@ namespace Football247.Data
 
             // Seeding data
             // Because seeding data is a one-time operation, we can use static values for CreatedAt
+
+            // Seed data for roles
+            var adminRoleId = "81470c42-0690-41b4-8b44-d6e388086964";
+            var userRoleId = "79620ca9-0980-410b-96ad-04e05a20e80e";
+
+            var roles = new List<IdentityRole>
+            {
+                new IdentityRole
+                {
+                    Id = adminRoleId,
+                    ConcurrencyStamp = adminRoleId,
+                    Name = "Admin",
+                    NormalizedName = "Admin".ToUpper()
+                },
+                new IdentityRole
+                {
+                    Id = userRoleId,
+                    ConcurrencyStamp = userRoleId,
+                    Name = "User",
+                    NormalizedName = "User".ToUpper()
+                }
+            };
+            modelBuilder.Entity<IdentityRole>().HasData(roles);
 
             var categories = new List<Category>
             {
@@ -48,7 +74,6 @@ namespace Football247.Data
                 },
             };
             modelBuilder.Entity<Category>().HasData(categories);
-
 
 
             var aticles = new List<Article>
