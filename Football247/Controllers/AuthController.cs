@@ -55,7 +55,8 @@ namespace Football247.Controllers
 
                 if (identityResult.Succeeded)
                 {
-                    return Ok("User registered successfully. Please login.");
+                    var tokens = await _unitOfWork.TokenRepository.CreateTokensAsync(identityUser);
+                    return Ok(tokens);
                 }
             }
 
