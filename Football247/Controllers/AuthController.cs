@@ -12,7 +12,9 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Google.Apis.Auth;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
 
 namespace Football247.Controllers
 {
@@ -56,7 +58,22 @@ namespace Football247.Controllers
                 if (identityResult.Succeeded)
                 {
                     var tokens = await _unitOfWork.TokenRepository.CreateTokensAsync(identityUser);
-                    return Ok(tokens);
+
+                    var cookieOptions = new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Expires = DateTime.UtcNow.AddDays(7),
+                        Secure = false,
+                        SameSite = SameSiteMode.Lax
+                    };
+                    Response.Cookies.Append("refreshToken", tokens.RefreshToken, cookieOptions);
+
+                    return Ok(new
+                    {
+                        userId = tokens.UserId,
+                        fullName = tokens.FullName,
+                        jwtToken = tokens.JwtToken
+                    });
                 }
             }
 
@@ -76,7 +93,22 @@ namespace Football247.Controllers
                 if (checkPasswordResult)
                 {
                     var tokens = await _unitOfWork.TokenRepository.CreateTokensAsync(identityUser);
-                    return Ok(tokens);
+
+                    var cookieOptions = new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Expires = DateTime.UtcNow.AddDays(7),
+                        Secure = false,
+                        SameSite = SameSiteMode.Lax
+                    };
+                    Response.Cookies.Append("refreshToken", tokens.RefreshToken, cookieOptions);
+
+                    return Ok(new
+                    {
+                        userId = tokens.UserId,
+                        fullName = tokens.FullName,
+                        jwtToken = tokens.JwtToken
+                    });
                 }
             }
             return BadRequest("Username or password is incorrect");
@@ -85,17 +117,44 @@ namespace Football247.Controllers
 
         [HttpPost]
         [Route("Refresh")]
-        public async Task<IActionResult> Refresh([FromBody] TokenRequestDto tokenRequestDto)
+        public async Task<IActionResult> Refresh()
         {
-            if (!ModelState.IsValid) return BadRequest("Invalid request");
+            var refreshToken = Request.Cookies["refreshToken"];
+
+            if (string.IsNullOrEmpty(refreshToken))
+            {
+                //Console.WriteLine("\n\n\n--------------LOI 1--------------\n\n\n");
+
+                return BadRequest("Refresh token not found.");
+            }
 
             try
             {
-                var result = await _unitOfWork.TokenRepository.RefreshTokensAsync(tokenRequestDto);
-                return Ok(result);
+                //Console.WriteLine("\n\n\n--------------GOI REFESH TOKEN--------------\n\n\n");
+                // Truyền token đọc được vào repository
+                var result = await _unitOfWork.TokenRepository.RefreshTokensAsync(refreshToken);
+
+                // THAY ĐỔI 7: Lại set cookie mới cho refresh token rotation
+                var cookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Expires = DateTime.UtcNow.AddDays(7),
+                    Secure = false,
+                    SameSite = SameSiteMode.Lax
+                };
+                Response.Cookies.Append("refreshToken", result.RefreshToken, cookieOptions);
+
+                return Ok(new
+                {
+                    userId = result.UserId,
+                    fullName = result.FullName,
+                    jwtToken = result.JwtToken
+                });
             }
             catch (SecurityTokenException ex)
             {
+                //Console.WriteLine("\n\n\n--------------LOI 2--------------\n\n\n");
+
                 return BadRequest(new { Error = ex.Message });
             }
         }

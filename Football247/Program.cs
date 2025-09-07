@@ -148,7 +148,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionHandlerMiddleware>();
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 // Phục vụ file tĩnh (ví dụ: hình ảnh)
 app.UseStaticFiles(new StaticFileOptions

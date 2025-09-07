@@ -7,7 +7,7 @@ namespace Football247.Repositories.IRepository
     public interface ITokenRepository
     {
         Task<LoginResponseDto> CreateTokensAsync(ApplicationUser user);
-        Task<LoginResponseDto> RefreshTokensAsync(TokenRequestDto tokenRequestDto);
+        Task<LoginResponseDto> RefreshTokensAsync(string refreshToken);
         Task<bool> LogoutAsync(string refreshTokenString);
     }
 }

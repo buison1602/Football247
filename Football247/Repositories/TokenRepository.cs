@@ -78,26 +78,35 @@ namespace Football247.Repositories
         }
         
 
-        public async Task<LoginResponseDto> RefreshTokensAsync(TokenRequestDto tokenRequestDto)
+        public async Task<LoginResponseDto> RefreshTokensAsync(string refreshToken)
         {
-            var principal = DecodeJwtToken(tokenRequestDto.AccessToken);
-            var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var storedToken = await _authDbContext.RefreshTokens
+        .FirstOrDefaultAsync(x => x.Token == refreshToken);
+
+            // 2. Xác thực token (không cần accessToken cũ nữa)
+            if (storedToken == null || storedToken.ExpiryDate <= DateTime.UtcNow || storedToken.IsUsed)
+            {
+                throw new SecurityTokenException("Invalid, expired, or used Refresh Token");
+            }
+
+            // Lấy UserId trực tiếp từ storedToken
+            var userId = storedToken.UserId;
             if (string.IsNullOrEmpty(userId))
             {
-                throw new SecurityTokenException("Invalid token claims");
+                throw new SecurityTokenException("User ID not found in refresh token");
             }
 
-            var storedToken = await _authDbContext.RefreshTokens.FirstOrDefaultAsync(x => x.Token == tokenRequestDto.RefreshToken);
-
-            if (storedToken == null || storedToken.UserId != userId || storedToken.ExpiryDate <= DateTime.UtcNow || storedToken.IsUsed)
-            {
-                throw new SecurityTokenException("Invalid Refresh Token");
-            }
-
+            // 3. Đánh dấu token cũ là đã sử dụng (Rotation)
             storedToken.IsUsed = true;
             await _authDbContext.SaveChangesAsync();
 
+            // 4. Tạo cặp token mới
             var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                throw new SecurityTokenException("User not found");
+            }
+
             return await CreateTokensAsync(user);
         }
 
