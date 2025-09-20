@@ -1,8 +1,5 @@
-﻿using AutoMapper;
-using Football247.Models.DTOs.Comment;
+﻿using Football247.Models.DTOs.Comment;
 using Football247.Models.Entities;
-using Football247.Repositories.IRepository;
-using Football247.Services;
 using Football247.Services.IService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,62 +11,34 @@ namespace Football247.Controllers
     [Route("api/[controller]")]
     public class CommentController : ControllerBase
     {
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IMapper _mapper;
-        private readonly IRealtimeService _realtimeService;
+        private readonly ICommentService _commentService;
 
-        public CommentController(IUnitOfWork unitOfWork, IMapper mapper, IRealtimeService realtimeService)
+        public CommentController(IRealtimeService realtimeService, ICommentService commentService)
         {
-            _unitOfWork = unitOfWork;
-            _mapper = mapper;
-            _realtimeService = realtimeService;
+            _commentService = commentService;
         }
+
 
         [HttpGet("{articleId:guid}")]
         public async Task<IActionResult> GetCommentsByArticleId(Guid articleId)
         {
-            var comments = await _unitOfWork.CommentRepository.GetCommentsByArticleIdAsync(articleId);
+            List<CommentDto> commentsDto = await _commentService.GetCommentsByArticleIdAsync(articleId);
 
-            var commentDtos = comments.Select(c => new CommentDto
-            {
-                Id = c.Id,
-                Content = c.Content,
-                CreatedAt = c.CreatedAt,
-                CreatorId = c.CreatorId,
-                CreatorName = c.Creator?.UserName ?? "Unknown",
-                ArticleId = c.ArticleId
-            });
-
-            return Ok(commentDtos);
+            return Ok(commentsDto);
         }
+
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> PostComment([FromBody] AddCommentRequestDto request)
+        public async Task<IActionResult> PostComment([FromBody] AddCommentRequestDto addCommentRequestDto)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userId == null)
                 return Unauthorized();
 
-            var comment = _mapper.Map<Comment>(request);
-            comment.Id = Guid.NewGuid();
-            comment.CreatedAt = DateTime.UtcNow;
-            comment.CreatorId = userId;
+            CommentDto createdCommentDto = await _commentService.PostCommentAsync(addCommentRequestDto, userId);
 
-            await _unitOfWork.CommentRepository.CreateAsync(comment);
-            await _unitOfWork.SaveAsync();
-
-            var savedComment = await _unitOfWork.CommentRepository
-                .GetCommentsByArticleIdAsync(comment.ArticleId);
-
-            var result = savedComment
-                .FirstOrDefault(c => c.Id == comment.Id);
-
-            var commentDto = _mapper.Map<CommentDto>(result);
-
-            await _realtimeService.NotifyAllAsync("ReceiveComment", commentDto);
-
-            return Ok(commentDto);
+            return Ok(createdCommentDto);
         }
     }
 }

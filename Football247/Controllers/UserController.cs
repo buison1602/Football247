@@ -1,6 +1,7 @@
 ﻿using Football247.Models.DTOs.User;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
+using Football247.Services.IService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -14,20 +15,18 @@ namespace Football247.Controllers
     [Authorize(Roles = "Admin")]
     public class UserController : ControllerBase
     {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IUserService _userService;
 
-        public UserController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+        public UserController(IUserService userService)
         {
-            _userManager = userManager;
-            _roleManager = roleManager;
+            _userService = userService;
         }
 
 
         [HttpGet]
         public async Task<IActionResult> GetAllUsers()
         {
-            var users = await _userManager.Users.ToListAsync();
+            var users = await _userService.GetAllUsersAsync();
             return Ok(users);
         }
 
@@ -35,25 +34,22 @@ namespace Football247.Controllers
         [HttpGet("role/{roleName}")]
         public async Task<IActionResult> GetUsersByRole(string roleName)
         {
-            var roleExists = await _roleManager.RoleExistsAsync(roleName);
-            if (!roleExists)
+            try
             {
-                return NotFound(new { Message = $"Role '{roleName}' does not exist." });
+                var users = await _userService.GetUsersByRoleAsync(roleName);
+                return Ok(users);
             }
-
-            var users = await _userManager.GetUsersInRoleAsync(roleName);
-            if (users == null || !users.Any())
+            catch (ArgumentException ex)
             {
-                return NotFound(new { Message = "No users found for the specified role." });
+                return BadRequest(new { Message = ex.Message });
             }
-            return Ok(users);
         }
 
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetUserById(string id)
         {
-            var user = await _userManager.FindByIdAsync(id);
+            var user = await _userService.GetUserByIdAsync(id);
 
             if (user == null)
             {
@@ -72,68 +68,72 @@ namespace Football247.Controllers
                 return BadRequest(ModelState);
             }
 
-            var newUser = new ApplicationUser
+            try
             {
-                UserName = createUserDto.Email,
-                Email = createUserDto.Email,
-            };
+                var (result, userDto) = await _userService.CreateUserAsync(createUserDto);
 
-            var result = await _userManager.CreateAsync(newUser, createUserDto.Password);
+                if (result.Succeeded)
+                {
+                    return CreatedAtAction(nameof(GetUserById), new { id = userDto.Id }, userDto);
+                }
 
-            if (!result.Succeeded)
-            {
                 return BadRequest(result.Errors);
             }
-
-            await _userManager.AddToRoleAsync(newUser, createUserDto.Role);
-
-            return CreatedAtAction(nameof(GetUserById), new { id = newUser.Id }, newUser);
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
 
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(string id, [FromBody] UpdateUserDto updateUserDto)
         {
-            var user = await _userManager.FindByIdAsync(id);
-
-            if (user == null)
+            if (!ModelState.IsValid)
             {
-                return NotFound(new { Message = "User not found." });
+                return BadRequest(ModelState);
             }
 
-            // Cập nhật các thuộc tính từ DTO
-            user.AvatarUrl = updateUserDto.AvatarUrl;
-            user.Points = updateUserDto.Points;
-            user.SpinCount = updateUserDto.SpinCount;
-
-            var result = await _userManager.UpdateAsync(user);
-
-            if (!result.Succeeded)
+            try
             {
+                var result = await _userService.UpdateUserAsync(id, updateUserDto);
+                if (result.Succeeded)
+                {
+                    return NoContent();
+                }
+                if (result.Errors.Any(e => e.Code == "NotFound"))
+                {
+                    return NotFound(new { Message = result.Errors.First().Description });
+                }
                 return BadRequest(result.Errors);
             }
-
-            return Ok(new { Message = "User updated successfully.", User = user });
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
 
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(string id)
         {
-            var user = await _userManager.FindByIdAsync(id);
-            if (user == null)
+            try
             {
-                return NotFound(new { Message = "User not found." });
+                var result = await _userService.DeleteUserAsync(id);
+                if (result.Succeeded)
+                {
+                    return NoContent();
+                }
+                if (result.Errors.Any(e => e.Code == "NotFound"))
+                {
+                    return NotFound(new { Message = result.Errors.First().Description });
+                }
+                return BadRequest(result.Errors);
             }
-
-            var result = await _userManager.DeleteAsync(user);
-
-            if (!result.Succeeded)
+            catch (ArgumentException ex)
             {
-                return BadRequest(new { Message = "Error deleting user.", Errors = result.Errors });
+                return BadRequest(new { Message = ex.Message });
             }
-
-            return Ok(new { Message = "User deleted successfully." });
         }
     }
 }

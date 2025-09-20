@@ -1,12 +1,7 @@
-﻿using AutoMapper;
-using Football247.Models.DTOs.Category;
-using Football247.Models.Entities;
-using Football247.Repositories.IRepository;
+﻿using Football247.Models.DTOs.Category;
+using Football247.Services.IService;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
-using System.Diagnostics;
 using System.Reflection;
 
 namespace Football247.Controllers
@@ -15,18 +10,13 @@ namespace Football247.Controllers
     [ApiController]
     public class CategoryController : ControllerBase
     {
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IMapper _mapper;
-        private readonly IMemoryCache _memoryCache;
         private readonly ILogger<CategoryController> _logger;
-        private const string CacheKey = "categories";
+        private readonly ICategoryService _categoryService;
 
-        public CategoryController(IUnitOfWork unitOfWork, IMapper mapper, IMemoryCache memoryCache, ILogger<CategoryController> logger)
+        public CategoryController(ILogger<CategoryController> logger, ICategoryService categoryService)
         {
-            _unitOfWork = unitOfWork;
-            _mapper = mapper;
-            _memoryCache = memoryCache;
             _logger = logger;
+            _categoryService = categoryService;
         }
 
 
@@ -37,26 +27,7 @@ namespace Football247.Controllers
 
             try
             {
-                List<Category>? categories;
-
-                if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
-                {
-                    categories = data;
-                }
-                else
-                {
-                    categories = await _unitOfWork.CategoryRepository.GetAllAsync();
-                    if (categories == null || !categories.Any())
-                    {
-                        return NotFound();
-                    }
-
-                    // Set cache options
-                    var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromDays(1));
-                    _memoryCache.Set(CacheKey, categories, cacheEntryOptions);
-                }
-                // Map the list of Category entities to a list of CategoryDto
-                List<CategoryDto> categoryDtos = _mapper.Map<List<CategoryDto>>(categories);
+                List<CategoryDto> categoryDtos = await _categoryService.GetAllAsync();
 
                 return Ok(categoryDtos);
             }
@@ -75,22 +46,7 @@ namespace Football247.Controllers
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
             try
             {
-                Category? categoryDomain;
-
-                if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
-                {
-                    categoryDomain = data?.FirstOrDefault(c => c.Id == id);
-                    if (categoryDomain != null)
-                    {
-                        return Ok(_mapper.Map<CategoryDto>(categoryDomain));
-                    }
-                }
-                categoryDomain = await _unitOfWork.CategoryRepository.GetByIdAsync(id);
-                if (categoryDomain == null)
-                {
-                    return NotFound();
-                }
-                CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
+                CategoryDto categoryDto = await _categoryService.GetByIdAsync(id);
 
                 return Ok(categoryDto);
             }
@@ -110,23 +66,11 @@ namespace Football247.Controllers
             
             try
             {
-                Category? categoryDomain;
-
-                if (_memoryCache.TryGetValue(CacheKey, out List<Category>? data))
-                {
-                    categoryDomain = data?.FirstOrDefault(c => c.Slug == slug);
-                    if (categoryDomain != null)
-                    {
-                        return Ok(_mapper.Map<CategoryDto>(categoryDomain));
-                    }
-                }
-                categoryDomain = await _unitOfWork.CategoryRepository.GetBySlugAsync(slug);
-                if (categoryDomain == null)
+                CategoryDto categoryDto = await _categoryService.GetBySlugAsync(slug);
+                if (categoryDto == null)
                 {
                     return NotFound();
                 }
-                CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
-
                 return Ok(categoryDto);
             } 
             catch (Exception ex)
@@ -145,15 +89,11 @@ namespace Football247.Controllers
 
             try
             {
-                Category categoryDomain = _mapper.Map<Category>(addCategoryRequestDto);
-                categoryDomain = await _unitOfWork.CategoryRepository.CreateAsync(categoryDomain);
-                if (categoryDomain == null)
+                CategoryDto categoryDto = await _categoryService.CreateAsync(addCategoryRequestDto);
+                if (categoryDto == null)
                 {
                     return BadRequest();
                 }
-                _memoryCache.Remove(CacheKey);
-                CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
-
                 return CreatedAtAction(nameof(GetBySlug), new { slug = categoryDto.Slug }, categoryDto);
             } 
             catch (Exception ex)
@@ -172,15 +112,11 @@ namespace Football247.Controllers
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
             try
             {
-                var categoryDomain = _mapper.Map<Category>(updateCategoryRequestDto);
-                var updatedCategory = await _unitOfWork.CategoryRepository.UpdateAsync(id, categoryDomain);
-                if (updatedCategory == null)
+                CategoryDto categoryDto = await _categoryService.UpdateAsync(id, updateCategoryRequestDto);
+                if (categoryDto == null)
                 {
                     return NotFound();
                 }
-                _memoryCache.Remove(CacheKey);
-                CategoryDto categoryDto = _mapper.Map<CategoryDto>(updatedCategory);
-
                 return Ok(categoryDto);
             }
             catch (Exception ex)
@@ -199,14 +135,11 @@ namespace Football247.Controllers
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
             try
             {
-                var categoryDomain = await _unitOfWork.CategoryRepository.DeleteAsync(id);
-                if (categoryDomain == null)
+                CategoryDto categoryDto = await _categoryService.DeleteAsync(id);
+                if (categoryDto == null)
                 {
                     return NotFound();
                 }
-                _memoryCache.Remove(CacheKey);
-                CategoryDto categoryDto = _mapper.Map<CategoryDto>(categoryDomain);
-
                 return Ok(categoryDto);
             }
             catch (Exception ex)

@@ -10,12 +10,23 @@ namespace Football247.Repositories
     public class UnitOfWork : IUnitOfWork
     {
         private readonly Football247DbContext _db;
-        public ICategoryRepository CategoryRepository { get; private set; }
-        public IArticleRepository ArticleRepository { get; private set; }
-        public ITagRepository TagRepository { get; private set; }
-        public IImageRepository ImageRepository { get; private set; }
-        public ITokenRepository TokenRepository { get; private set; }
-        public ICommentRepository CommentRepository { get; private set; }
+
+
+        // Khai báo các backing field kiểu Lazy<T>
+        private readonly Lazy<ICategoryRepository> _categoryRepository;
+        private readonly Lazy<IArticleRepository> _articleRepository;
+        private readonly Lazy<ITagRepository> _tagRepository;
+        private readonly Lazy<IImageRepository> _imageRepository;
+        private readonly Lazy<ITokenRepository> _tokenRepository;
+        private readonly Lazy<ICommentRepository> _commentRepository;
+
+        public ICategoryRepository CategoryRepository => _categoryRepository.Value;
+        public IArticleRepository ArticleRepository => _articleRepository.Value;
+        public ITagRepository TagRepository => _tagRepository.Value;
+        public IImageRepository ImageRepository => _imageRepository.Value;
+        public ITokenRepository TokenRepository => _tokenRepository.Value;
+        public ICommentRepository CommentRepository => _commentRepository.Value;
+
 
         public UnitOfWork(
             Football247DbContext db, 
@@ -26,13 +37,15 @@ namespace Football247.Repositories
             UserManager<ApplicationUser> userManager)
         {
             _db = db;
-            CategoryRepository = new CategoryRepository(_db);
-            ArticleRepository = new ArticleRepository(_db, _webHostEnvironment, loggerFactory.CreateLogger<ArticleRepository>());
-            TagRepository = new TagRepository(_db);
-            ImageRepository = new ImageRepository(_db, _webHostEnvironment, _httpContextAccessor);
-            TokenRepository = new TokenRepository(configuration, _db, userManager);
-            CommentRepository = new CommentRepository(_db);
+
+            _categoryRepository = new Lazy<ICategoryRepository>(() => new CategoryRepository(_db));
+            _articleRepository = new Lazy<IArticleRepository>(() => new ArticleRepository(_db, _webHostEnvironment, loggerFactory.CreateLogger<ArticleRepository>()));
+            _tagRepository = new Lazy<ITagRepository>(() => new TagRepository(_db));
+            _imageRepository = new Lazy<IImageRepository>(() => new ImageRepository(_db, _webHostEnvironment, _httpContextAccessor));
+            _tokenRepository = new Lazy<ITokenRepository>(() => new TokenRepository(configuration, _db, userManager));
+            _commentRepository = new Lazy<ICommentRepository>(() => new CommentRepository(_db));
         }
+
         public Task SaveAsync()
         {
             return _db.SaveChangesAsync();

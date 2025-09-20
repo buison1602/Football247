@@ -2,7 +2,9 @@
 
 namespace Football247.Repositories.IRepository
 {
-    public interface ITagRepository : IRepository<Tag>, ISlugRepository<Tag>
+    public interface ITagRepository : IRepository<Tag>, 
+        ISlugRepository<Tag>,
+        INameRepository<Tag>
     {
         Task<Tag> UpdateAsync(Guid id, Tag tag);
     }

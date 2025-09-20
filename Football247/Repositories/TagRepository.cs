@@ -14,6 +14,16 @@ namespace Football247.Repositories
             _db = db;
         }
 
+        public async Task<Tag> GetByNameAsync(string name)
+        {
+            var existingEntity = await _db.Tags.FirstOrDefaultAsync(u => u.Name == name);
+            if (existingEntity == null)
+            {
+                return null;
+            }
+            return existingEntity;
+        }
+
         public async Task<Tag> GetBySlugAsync(string slug)
         {
             var existingEntity = await _db.Tags.FirstOrDefaultAsync(u => u.Slug == slug);

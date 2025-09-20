@@ -1,4 +1,5 @@
 using Football247.Data;
+using Football247.IdentityExtensions;
 using Football247.Mappings;
 using Football247.Middleware;
 using Football247.Models.Entities;
@@ -78,7 +79,9 @@ builder.Services.AddDbContext<Football247DbContext>(options =>
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>() 
     .AddEntityFrameworkStores<Football247DbContext>()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    // cấu hình quy tắc cho email
+    .AddUserValidator<AllowedDomainUserValidator<ApplicationUser>>();
 
 
 // Cấu hình Quy tắc cho Mật khẩu
@@ -132,6 +135,15 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+//builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.Scan(scan => scan
+    .FromAssemblyOf<Program>()
+    .AddClasses(classes => classes.Where(c => c.Name.EndsWith("Service")))
+    .AsMatchingInterface()
+    .WithScopedLifetime()
+);
+
 
 builder.Services.AddAutoMapper(typeof(Program));
 
