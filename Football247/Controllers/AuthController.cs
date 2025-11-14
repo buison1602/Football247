@@ -24,19 +24,11 @@ namespace Football247.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IConfiguration _configuration;
         private readonly IAuthService _authService;
 
-        public AuthController(UserManager<ApplicationUser> userManager,
-            IUnitOfWork unitOfWork,
-            IAuthService authService,
-            IConfiguration configuration)
+
+        public AuthController(IAuthService authService)
         {
-            this._userManager = userManager;
-            this._unitOfWork = unitOfWork;
-            this._configuration = configuration;
             this._authService = authService;
         }
 
@@ -126,6 +118,7 @@ namespace Football247.Controllers
             }
         }
 
+
         [HttpPost]
         [Route("Logout")]
         public async Task<IActionResult> Logout()
@@ -137,7 +130,7 @@ namespace Football247.Controllers
                 return BadRequest("Refresh Token is required.");
             }
 
-            var success = await _unitOfWork.TokenRepository.LogoutAsync(refreshToken);
+            var success = await _authService.LogoutAsync(refreshToken);
 
             if (success)
             {

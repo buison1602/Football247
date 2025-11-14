@@ -180,5 +180,18 @@ namespace Football247.Repositories
 
             return existingEntity;
         }
+
+        public async Task<List<Article>> Get5ArticlesAsync()
+        {
+            return await _db.Articles
+                .Include(a => a.Images)
+                .Include(a => a.Category)
+                .Include(a => a.Creator)
+                .Include(a => a.ArticleTags)
+                    .ThenInclude(at => at.Tag)
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(5)
+                .ToListAsync();
+        }
     }
 }

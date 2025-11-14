@@ -136,7 +136,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-//builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.Scan(scan => scan
     .FromAssemblyOf<Program>()
     .AddClasses(classes => classes.Where(c => c.Name.EndsWith("Service")))
@@ -160,7 +159,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionHandlerMiddleware>();
 
-//app.UseHttpsRedirection();
+app.UseHttpsRedirection();
 
 // Phục vụ file tĩnh (ví dụ: hình ảnh)
 app.UseStaticFiles(new StaticFileOptions

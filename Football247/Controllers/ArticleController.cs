@@ -1,14 +1,9 @@
 ﻿using AutoMapper;
 using Azure.Core;
 using Football247.Models.DTOs.Article;
-using Football247.Models.DTOs.Category;
-using Football247.Models.DTOs.Image;
-using Football247.Models.Entities;
-using Football247.Repositories.IRepository;
+using Football247.Services.IService;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
 using System.Reflection;
 
 namespace Football247.Controllers
@@ -17,18 +12,13 @@ namespace Football247.Controllers
     [ApiController]
     public class ArticleController : ControllerBase
     {
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IMapper _mapper;
-        private readonly IMemoryCache _memoryCache;
         private readonly ILogger<ArticleController> _logger;
-        private const string CacheKey = "articles";
+        private readonly IArticleService _articleService;
 
-        public ArticleController(IUnitOfWork unitOfWork, IMapper mapper, IMemoryCache memoryCache, ILogger<ArticleController> logger)
+        public ArticleController(ILogger<ArticleController> logger, IArticleService articleService)
         {
-            _unitOfWork = unitOfWork;
-            _mapper = mapper;
-            _memoryCache = memoryCache;
             _logger = logger;
+            _articleService = articleService;
         }
 
 
@@ -39,26 +29,29 @@ namespace Football247.Controllers
 
             try
             {
-                List<Article> articles = new List<Article>();
+                List<ArticlesDto> articlesDtos = await _articleService.GetAllAsync();
+                if (articlesDtos == null) return NotFound();
 
-                if (_memoryCache.TryGetValue(CacheKey, out List<Article>? data))
-                {
-                    articles = data;
-                }
-                else
-                {
-                    articles = await _unitOfWork.ArticleRepository.GetAllAsync();
-                    if (articles == null || !articles.Any())
-                    {
-                        return NotFound();
-                    }
+                return Ok(articlesDtos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
+                return StatusCode(500, ex.Message);
+            }
+        }
 
-                    var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromHours(2));
-                    _memoryCache.Set(CacheKey, articles, cacheEntryOptions);
-                }
 
-                List<ArticlesDto> articlesDtos = _mapper.Map<List<ArticlesDto>>(articles);
+        [HttpGet]
+        [Route("Get5Articles")]
+        public async Task<IActionResult> Get5Articles()
+        {
+            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
 
+            try
+            {
+                List<ArticlesDto> articlesDtos = await _articleService.Get5ArticlesAsync();
+                if (articlesDtos == null) return NotFound();
                 return Ok(articlesDtos);
             }
             catch (Exception ex)
@@ -77,25 +70,8 @@ namespace Football247.Controllers
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with categorySlug: {categorySlug}, page: {page}");
             try
             {
-                List<Article> articles;
-                string NewCacheKey = $"articles_{categorySlug}_{page}";
-                if (_memoryCache.TryGetValue(NewCacheKey, out List<Article>? data))
-                {
-                    articles = data;
-                }
-                else
-                {
-                    articles = await _unitOfWork.ArticleRepository.GetByCategoryAsync(categorySlug, page);
-                    if (articles == null || !articles.Any())
-                    {
-                        _logger.LogWarning($"No articles found for categorySlug: {categorySlug}, page: {page}");
-                        return NotFound();
-                    }
-                    var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromHours(2));
-                    _memoryCache.Set(NewCacheKey, articles, cacheEntryOptions);
-                }
-
-                List<ArticlesDto> articlesDtos = _mapper.Map<List<ArticlesDto>>(articles);
+                List<ArticlesDto> articlesDtos = await _articleService.GetByCategoryAsync(categorySlug, page);
+                if (articlesDtos == null) return NotFound();
                 return Ok(articlesDtos);
             }
             catch (Exception ex) 
@@ -114,26 +90,8 @@ namespace Football247.Controllers
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with tagSlug: {tagSlug}, page: {page}");   
             try
             {
-                List<Article> articles;
-                string NewCacheKey = $"articles_{tagSlug}_{page}";
-                if (_memoryCache.TryGetValue(NewCacheKey, out List<Article>? data))
-                {
-                    articles = data;
-                } 
-                else
-                {
-                    articles = await _unitOfWork.ArticleRepository.GetByTagAsync(tagSlug, page);
-                    if (articles == null || !articles.Any())
-                    {
-                        _logger.LogWarning($"No articles found for tagSlug: {tagSlug}, page: {page}");
-                        return NotFound();
-                    }
-
-                    var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromHours(2));
-                    _memoryCache.Set(NewCacheKey, articles, cacheEntryOptions);
-                }
-
-                List<ArticlesDto> articlesDtos = _mapper.Map<List<ArticlesDto>>(articles);
+                List<ArticlesDto> articlesDtos = await _articleService.GetByTagAsync(tagSlug, page);
+                if (articlesDtos == null) return NotFound();
                 return Ok(articlesDtos);
             }
             catch (Exception ex)
@@ -147,33 +105,14 @@ namespace Football247.Controllers
         [HttpGet]
         //[Route("{categorySlug}/{articleSlug}")]
         [Route("list/{articleSlug}")]
-        public async Task<IActionResult> GetBySlug(string articleSlug)
+        public async Task<IActionResult> GetArticleBySlug(string articleSlug)
         {
-            //_logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with categorySlug: {categorySlug}, articleSlug: {articleSlug}");
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with articleSlug: {articleSlug}");
 
             try
             {
-                Article? articleDomain;
-                string NewCacheKey = $"articles_{articleSlug}";
-                if (_memoryCache.TryGetValue(NewCacheKey, out Article? data))
-                {
-                    articleDomain = data;
-                }
-                else
-                {
-                    articleDomain = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleSlug);
-                    if (articleDomain == null)
-                    {
-                        //_logger.LogWarning($"No article found for categorySlug: {categorySlug}, articleSlug: {articleSlug}");
-                        _logger.LogWarning($"No article found for articleSlug: {articleSlug}");
-                        return NotFound();
-                    }
-                    var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromHours(2));
-                    _memoryCache.Set(NewCacheKey, articleDomain, cacheEntryOptions);
-                }
-
-                var articleDto = _mapper.Map<ArticleDto>(articleDomain);
+                var articleDto = await _articleService.GetBySlugAsync(articleSlug);
+                if (articleDto == null) return NotFound();
                 return Ok(articleDto);
             }
             catch (Exception ex)
@@ -191,32 +130,18 @@ namespace Football247.Controllers
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
             try
             {
-                var articleDomain = _mapper.Map<Article>(addArticleRequestDto);
+                var articleDto = await _articleService.CreateAsync(addArticleRequestDto);
 
-                // Validate the image file
-                _unitOfWork.ImageRepository.ValidateFileUpload(addArticleRequestDto.BgrImgs, addArticleRequestDto.Captions);
-                
-                articleDomain = await _unitOfWork.ArticleRepository.CreateAsync(articleDomain);
-                if (articleDomain == null)
-                {
-                    return BadRequest();
-                }
-                _memoryCache.Remove(CacheKey);
-
-                // Sau khi tạo thành công, lấy lại thông tin bài viết để trả về để gán
-                // giá trị cho Tag và Article trong ArticleTag thông qua include
-                articleDomain = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleDomain.Slug);
-                ArticleDto articleDto = _mapper.Map<ArticleDto>(articleDomain);
-
-                // Xử lý ảnh nền (background images) cho bài viết
-                // Đã Upload image
-                articleDto.Images = await _unitOfWork.ImageRepository.CreateImageDto(
-                    addArticleRequestDto.BgrImgs,
-                    addArticleRequestDto.Captions,
-                    articleDomain.Id,
-                    articleDomain.Slug);
-
-                return CreatedAtAction(nameof(GetBySlug), new { categorySlug = articleDomain.Category.Slug, articleSlug = articleDto.Slug }, articleDto);
+                return CreatedAtAction(
+                    actionName: nameof(GetArticleBySlug),
+                    routeValues: new { articleSlug = articleDto.Slug },   
+                    value: articleDto
+                );
+            }
+            catch (InvalidOperationException ex)   
+            {
+                _logger.LogWarning(ex, "Create Article failed");
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -234,15 +159,13 @@ namespace Football247.Controllers
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with id: {id}");
             try
             {
-                var articleDomain = _mapper.Map<Article>(updateArticleRequestDto);
-                articleDomain = await _unitOfWork.ArticleRepository.UpdateAsync(id, articleDomain);
-                if (articleDomain == null)
-                {
-                    return NotFound();
-                }
-                _memoryCache.Remove(CacheKey);
-                ArticleDto articleDto = _mapper.Map<ArticleDto>(articleDomain);
+                var articleDto = await _articleService.UpdateAsync(id, updateArticleRequestDto);
                 return Ok(articleDto);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Update Article failed");
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -260,14 +183,13 @@ namespace Football247.Controllers
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with id: {id}");
             try
             {
-                var articleDomain = await _unitOfWork.ArticleRepository.DeleteAsync(id);
-                if (articleDomain == null)
-                {
-                    return NotFound();
-                }
-                _memoryCache.Remove(CacheKey);
-                ArticleDto articleDto = _mapper.Map<ArticleDto>(articleDomain);
+                var articleDto = await _articleService.DeleteAsync(id);
                 return Ok(articleDto);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Update Article failed");
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {

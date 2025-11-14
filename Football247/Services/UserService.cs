@@ -111,6 +111,7 @@ namespace Football247.Services
         public async Task<IdentityResult> UpdateUserAsync(string id, UpdateUserDto updateUserDto)
         {
             var user = await _userManager.FindByIdAsync(id);
+
             if (user == null)
             {
                 return IdentityResult.Failed(new IdentityError { 
@@ -118,9 +119,19 @@ namespace Football247.Services
                     Description = "User not found." });
             }
 
+            var existingUser = await _userManager.FindByNameAsync(updateUserDto.Name);
+
+            if (existingUser != null && existingUser.Id != id)
+            {
+                return IdentityResult.Failed(new IdentityError
+                {
+                    Code = "DuplicateUserName",
+                    Description = $"Username '{updateUserDto.Name}' is already taken."
+                });
+            }
+
+            user.UserName = updateUserDto.Name;
             user.AvatarUrl = updateUserDto.AvatarUrl;
-            user.Points = updateUserDto.Points;
-            user.SpinCount = updateUserDto.SpinCount;
 
             var result = await _userManager.UpdateAsync(user);
 

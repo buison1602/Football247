@@ -89,6 +89,8 @@ namespace Football247.Controllers
 
             try
             {
+                if (!ModelState.IsValid) return BadRequest();
+
                 CategoryDto categoryDto = await _categoryService.CreateAsync(addCategoryRequestDto);
                 if (categoryDto == null)
                 {

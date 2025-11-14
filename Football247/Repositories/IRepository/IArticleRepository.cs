@@ -11,5 +11,6 @@ namespace Football247.Repositories.IRepository
         Task<List<Article>> GetByCategoryAsync(string categorySlug, int page);
 
         Task<List<Article>> GetByTagAsync(string tagSlug, int page);
+        Task<List<Article>> Get5ArticlesAsync();
     }
 }
