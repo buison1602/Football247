@@ -2,6 +2,7 @@
 using Football247.Models.DTOs.Comment;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
+using Football247.Services.Caching;
 using Football247.Services.IService;
 using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
@@ -14,38 +15,33 @@ namespace Football247.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IRealtimeService _realtimeService;
-        private readonly IMemoryCache _memoryCache;
+        private readonly IRedisCacheService _redisCacheService;
         private const string CacheKey = "commentes";
-        public CommentService(IUnitOfWork unitOfWork, IMapper mapper, IRealtimeService realtimeService,
-             IMemoryCache memoryCache)
+        public CommentService(IUnitOfWork unitOfWork, 
+            IMapper mapper, 
+            IRealtimeService realtimeService,
+            IRedisCacheService redisCacheService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _realtimeService = realtimeService;
-            _memoryCache = memoryCache;
+            _redisCacheService = redisCacheService;
         }
         public async Task<List<CommentDto>> GetCommentsByArticleIdAsync(Guid articleId)
         {
-            List<Comment>? comments;
-
             string cacheKeyForArticle = $"{CacheKey}-{articleId}";
 
-            if (_memoryCache.TryGetValue(cacheKeyForArticle, out List<Comment>? data))
-            {
-                comments = data;
-            }
-            else
-            {
-                comments = await _unitOfWork.CommentRepository.GetCommentsByArticleIdAsync(articleId);
-                if (comments == null || !comments.Any())
-                {
-                    comments = new List<Comment>();
-                }
+            List<Comment>? comments = await _redisCacheService.GetDataAsync<List<Comment>>(cacheKeyForArticle);
 
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromDays(1));
-                _memoryCache.Set(CacheKey, comments, cacheEntryOptions);
+            if (comments != null)
+            {
+                return _mapper.Map<List<CommentDto>>(comments);
             }
 
+            comments = await _unitOfWork.CommentRepository.GetCommentsByArticleIdAsync(articleId);
+            comments ??= new List<Comment>();
+
+            await _redisCacheService.SetDataAsync(cacheKeyForArticle, comments);
             return _mapper.Map<List<CommentDto>>(comments);
         }
 
@@ -64,7 +60,7 @@ namespace Football247.Services
             }
 
             string cacheKeyForArticle = $"{CacheKey}-{addCommentRequestDto.ArticleId}";
-            _memoryCache.Remove(cacheKeyForArticle);
+            await _redisCacheService.RemoveDataAsync(cacheKeyForArticle);
 
             await _unitOfWork.SaveAsync();
 

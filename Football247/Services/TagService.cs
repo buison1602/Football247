@@ -4,6 +4,7 @@ using Football247.Models.DTOs.Category;
 using Football247.Models.DTOs.Tag;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
+using Football247.Services.Caching;
 using Football247.Services.IService;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -13,16 +14,19 @@ namespace Football247.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly IMemoryCache _memoryCache;
+        private readonly IRedisCacheService _redisCacheService;
         private readonly ILogger<TagController> _logger;
         private const string CacheKey = "tags";
 
-        public TagService(IUnitOfWork unitOfWork, IMapper mapper, IMemoryCache memoryCache, ILogger<TagController> logger)
+        public TagService(IUnitOfWork unitOfWork, 
+            IMapper mapper, 
+            ILogger<TagController> logger, 
+            IRedisCacheService redisCacheService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
-            _memoryCache = memoryCache;
             _logger = logger;
+            _redisCacheService = redisCacheService;
         }
 
         public async Task<TagDto> CreateAsync(AddTagRequestDto addTagRequestDto)
@@ -47,15 +51,15 @@ namespace Football247.Services
             {
                 throw new InvalidOperationException("Failed to create the tag in the database.");
             }
-            _memoryCache.Remove(CacheKey);
+
+            await _redisCacheService.RemoveDataAsync(CacheKey);
+
             return _mapper.Map<TagDto>(tagDomain);
         }
 
         public async Task<TagDto?> DeleteAsync(Guid id)
         {
-            Tag? tagDomain;
-
-            tagDomain = await _unitOfWork.TagRepository.GetByIdAsync(id);
+            Tag? tagDomain = await _unitOfWork.TagRepository.GetByIdAsync(id);
             if (tagDomain == null)
             {
                 throw new InvalidOperationException("Tag don't exist");
@@ -66,51 +70,44 @@ namespace Football247.Services
             {
                 return null;
             }
-            _memoryCache.Remove(CacheKey);
+            await _redisCacheService.RemoveDataAsync(CacheKey);
             return _mapper.Map<TagDto>(tagDomain);
         }
 
         public async Task<List<TagDto>> GetAllAsync()
         {
-            List<Tag>? tags;
+            List<Tag>? tags = await _redisCacheService.GetDataAsync<List<Tag>>(CacheKey);
 
-            if (_memoryCache.TryGetValue(CacheKey, out List<Tag>? data))
+            if (tags != null)
             {
-                tags = data;
+                return _mapper.Map<List<TagDto>>(tags);
             }
-            else
-            {
-                tags = await _unitOfWork.TagRepository.GetAllAsync();
-                if (tags == null || !tags.Any())
-                {
-                    tags = new List<Tag>();
-                }
 
-                // Set cache options
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromDays(1));
-                _memoryCache.Set(CacheKey, tags, cacheEntryOptions);
-            }
+            tags = await _unitOfWork.TagRepository.GetAllAsync();
+            tags ??= new List<Tag>();
+
+            await _redisCacheService.SetDataAsync(CacheKey, tags);
             return _mapper.Map<List<TagDto>>(tags);
         }
 
         public async Task<TagDto> GetBySlugAsync(string slug)
         {
-            Tag? TagDomain;
+            String newCacheKey = $"{CacheKey}-{slug}";
+            Tag? tagDomain = await _redisCacheService.GetDataAsync<Tag>(newCacheKey);
 
-            if (_memoryCache.TryGetValue(CacheKey, out List<Tag>? data))
+            if (tagDomain != null)
             {
-                TagDomain = data?.FirstOrDefault(c => c.Slug == slug);
-                if (TagDomain != null)
-                {
-                    return _mapper.Map<TagDto>(TagDomain);
-                }
+                return _mapper.Map<TagDto>(tagDomain);
             }
-            TagDomain = await _unitOfWork.TagRepository.GetBySlugAsync(slug);
-            if (TagDomain == null)
+
+            tagDomain = await _unitOfWork.TagRepository.GetBySlugAsync(slug);
+            if (tagDomain == null)
             {
                 return null;
             }
-            return _mapper.Map<TagDto>(TagDomain);
+            await _redisCacheService.SetDataAsync(newCacheKey, tagDomain);
+
+            return _mapper.Map<TagDto>(tagDomain);
         }
 
         public async Task<TagDto?> UpdateAsync(Guid id, UpdateTagRequestDto updateTagRequestDto)
@@ -129,7 +126,9 @@ namespace Football247.Services
             {
                 return null;
             }
-            _memoryCache.Remove(CacheKey);
+
+            await _redisCacheService.RemoveDataAsync(CacheKey);
+
             return _mapper.Map<TagDto>(updatedTag);
         }
     }

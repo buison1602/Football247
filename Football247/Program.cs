@@ -76,6 +76,12 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<Football247DbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Football247ConnectionString")));
 
+// Cấu hình Redis Cache
+builder.Services.AddStackExchangeRedisCache(option => 
+{
+    option.Configuration = builder.Configuration.GetConnectionString("RedisConnectionString");
+    option.InstanceName = "Football247_";
+});
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>() 
     .AddEntityFrameworkStores<Football247DbContext>()

@@ -10,20 +10,18 @@ namespace Football247.Services
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IConfiguration _configuration;
 
-        public AuthService(UserManager<ApplicationUser> userManager, IUnitOfWork unitOfWork, IConfiguration configuration)
+        public AuthService(UserManager<ApplicationUser> userManager, IUnitOfWork unitOfWork)
         {
             _userManager = userManager;
             _unitOfWork = unitOfWork;
-            _configuration = configuration;
         }
 
         public async Task<AuthResultDto> RegisterAsync(RegisterRequestDto registerRequestDto)
         {
             var existingUser = await _userManager.FindByEmailAsync(registerRequestDto.Email);
 
-            Console.WriteLine("/n/n---------------" + existingUser + "---------------------\n\n");
+            //Console.WriteLine("/n/n---------------" + existingUser + "---------------------\n\n");
 
             if (existingUser != null)
             {

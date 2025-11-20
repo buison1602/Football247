@@ -1,10 +1,9 @@
 ﻿using AutoMapper;
 using Football247.Models.DTOs.Article;
-using Football247.Models.DTOs.Category;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
+using Football247.Services.Caching;
 using Football247.Services.IService;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace Football247.Services
 {
@@ -12,14 +11,14 @@ namespace Football247.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly IMemoryCache _memoryCache;
+        private readonly IRedisCacheService _redisCacheService;
         private const string CacheKey = "articles";
 
-        public ArticleService(IUnitOfWork unitOfWork, IMapper mapper, IMemoryCache memoryCache)
+        public ArticleService(IUnitOfWork unitOfWork, IMapper mapper, IRedisCacheService redisCacheService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
-            _memoryCache = memoryCache;
+            _redisCacheService = redisCacheService;
         }
 
         public async Task<ArticleDto> CreateAsync(AddArticleRequestDto addArticleRequestDto)
@@ -40,7 +39,8 @@ namespace Football247.Services
             {
                 throw new InvalidOperationException("Failed to create the Article in the database.");
             }
-            _memoryCache.Remove(CacheKey);
+
+            await _redisCacheService.RemoveDataAsync(CacheKey);
 
             articleDomain = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleDomain.Slug);
             ArticleDto articleDto = _mapper.Map<ArticleDto>(articleDomain);
@@ -71,7 +71,7 @@ namespace Football247.Services
             {
                 throw new InvalidOperationException("Failed to update the Article in the database.");
             }
-            _memoryCache.Remove(CacheKey);
+            await _redisCacheService.RemoveDataAsync(CacheKey);
             return _mapper.Map<ArticleDto>(articleDomain);
         }
 
@@ -94,29 +94,24 @@ namespace Football247.Services
 
             await _unitOfWork.SaveAsync();
 
-            _memoryCache.Remove(CacheKey);
+            await _redisCacheService.RemoveDataAsync(CacheKey);
             return _mapper.Map<ArticleDto>(articleDomain);
         }
 
 
         public async Task<List<ArticlesDto>> GetByCategoryAsync(string categorySlug, int page)
         {
-            List<Article> articles;
-            string NewCacheKey = $"articles_{categorySlug}_{page}";
-            if (_memoryCache.TryGetValue(NewCacheKey, out List<Article>? data))
+            string newCacheKey = $"articles_{categorySlug}_{page}";
+            List<Article>? articles = await _redisCacheService.GetDataAsync<List<Article>>(newCacheKey);
+
+            if (articles != null)
             {
-                articles = data;
+                return _mapper.Map<List<ArticlesDto>>(articles);
             }
-            else
-            {
-                articles = await _unitOfWork.ArticleRepository.GetByCategoryAsync(categorySlug, page);
-                if (articles == null || !articles.Any())
-                {
-                    return null;
-                }
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromHours(2));
-                _memoryCache.Set(NewCacheKey, articles, cacheEntryOptions);
-            }
+            articles = await _unitOfWork.ArticleRepository.GetByCategoryAsync(categorySlug, page);
+            articles ??= new List<Article>();
+
+            await _redisCacheService.SetDataAsync(newCacheKey, articles);
 
             return _mapper.Map<List<ArticlesDto>>(articles);
         }
@@ -124,23 +119,18 @@ namespace Football247.Services
 
         public async Task<List<ArticlesDto>> GetByTagAsync(string tagSlug, int page)
         {
-            List<Article> articles;
-            string NewCacheKey = $"articles_{tagSlug}_{page}";
-            if (_memoryCache.TryGetValue(NewCacheKey, out List<Article>? data))
-            {
-                articles = data;
-            }
-            else
-            {
-                articles = await _unitOfWork.ArticleRepository.GetByTagAsync(tagSlug, page);
-                if (articles == null || !articles.Any())
-                {
-                    return null;
-                }
+            string newCacheKey = $"articles_{tagSlug}_{page}";
+            List<Article>? articles = await _redisCacheService.GetDataAsync<List<Article>>(newCacheKey);
 
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromHours(2));
-                _memoryCache.Set(NewCacheKey, articles, cacheEntryOptions);
+            if (articles != null)
+            {
+                return _mapper.Map<List<ArticlesDto>>(articles);
             }
+            
+            articles = await _unitOfWork.ArticleRepository.GetByTagAsync(tagSlug, page);
+            articles ??= new List<Article>();
+
+            await _redisCacheService.SetDataAsync(newCacheKey, articles);
 
             return _mapper.Map<List<ArticlesDto>>(articles);
         }
@@ -148,22 +138,17 @@ namespace Football247.Services
 
         public async Task<ArticleDto> GetBySlugAsync(string articleSlug)
         {
-            Article? articleDomain;
-            string NewCacheKey = $"articles_{articleSlug}";
-            if (_memoryCache.TryGetValue(NewCacheKey, out Article? data))
+            string newCacheKey = $"articles_{articleSlug}";
+            Article? articleDomain = await _redisCacheService.GetDataAsync<Article>(newCacheKey);
+
+            if (articleDomain != null)
             {
-                articleDomain = data;
+                return _mapper.Map<ArticleDto>(articleDomain);
             }
-            else
-            {
-                articleDomain = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleSlug);
-                if (articleDomain == null)
-                {
-                    return null;
-                }
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromHours(2));
-                _memoryCache.Set(NewCacheKey, articleDomain, cacheEntryOptions);
-            }
+            articleDomain = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleSlug);
+            articleDomain ??= new Article();
+
+            await _redisCacheService.SetDataAsync(newCacheKey, articleDomain);
 
             return _mapper.Map<ArticleDto>(articleDomain);
         }
@@ -171,23 +156,17 @@ namespace Football247.Services
 
         public async Task<List<ArticlesDto>> Get5ArticlesAsync()
         {
-            List<Article> articles = new List<Article>();
-            string NewCacheKey = $"5NewArticles";
-            if (_memoryCache.TryGetValue(NewCacheKey, out List<Article>? data))
-            {
-                articles = data;
-            }
-            else
-            {
-                articles = await _unitOfWork.ArticleRepository.Get5ArticlesAsync();
-                if (articles == null || !articles.Any())
-                {
-                    return null;
-                }
+            string newCacheKey = $"5NewArticles";
+            List<Article>? articles = await _redisCacheService.GetDataAsync<List<Article>>(newCacheKey);
 
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromHours(2));
-                _memoryCache.Set(NewCacheKey, articles, cacheEntryOptions);
+            if (articles != null)
+            {
+                return _mapper.Map<List<ArticlesDto>>(articles);
             }
+            articles = await _unitOfWork.ArticleRepository.Get5ArticlesAsync();
+            articles ??= new List<Article>();
+
+            await _redisCacheService.SetDataAsync(newCacheKey, articles);
 
             return _mapper.Map<List<ArticlesDto>>(articles);
         }
@@ -195,23 +174,16 @@ namespace Football247.Services
 
         public async Task<List<ArticlesDto>> GetAllAsync()
         {
-            List<Article> articles = new List<Article>();
+            List<Article>? articles = await _redisCacheService.GetDataAsync<List<Article>>(CacheKey);
 
-            if (_memoryCache.TryGetValue(CacheKey, out List<Article>? data))
+            if (articles != null)
             {
-                articles = data;
+                return _mapper.Map<List<ArticlesDto>>(articles);
             }
-            else
-            {
-                articles = await _unitOfWork.ArticleRepository.GetAllAsync();
-                if (articles == null || !articles.Any())
-                {
-                    return null;
-                }
+            articles = await _unitOfWork.ArticleRepository.GetAllAsync();
+            articles ??= new List<Article>();
 
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromHours(2));
-                _memoryCache.Set(CacheKey, articles, cacheEntryOptions);
-            }
+            await _redisCacheService.SetDataAsync(CacheKey, articles);
 
             return _mapper.Map<List<ArticlesDto>>(articles);
         }
