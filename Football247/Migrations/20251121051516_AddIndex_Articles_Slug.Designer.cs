@@ -4,6 +4,7 @@ using Football247.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Football247.Migrations
 {
     [DbContext(typeof(Football247DbContext))]
-    partial class Football247DbContextModelSnapshot : ModelSnapshot
+    [Migration("20251121051516_AddIndex_Articles_Slug")]
+    partial class AddIndex_Articles_Slug
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -144,6 +147,10 @@ namespace Football247.Migrations
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("CreatorId");
+
+                    b.HasIndex("Slug")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Articles_Slug");
 
                     b.HasIndex(new[] { "Slug" }, "IX_Articles_Slug")
                         .IsUnique();

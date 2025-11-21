@@ -113,7 +113,6 @@ namespace Football247.Data
             modelBuilder.Entity<Article>().HasData(aticles);
 
 
-
             var tags = new List<Tag>
             {
                new Tag()
@@ -183,6 +182,40 @@ namespace Football247.Data
             };
 
             modelBuilder.Entity<ArticleTag>().HasData(articleTags);
+
+
+            // --- INDEX CONFIGURATION ---
+            modelBuilder.Entity<Article>()
+               .HasIndex(a => a.Slug)
+               .HasDatabaseName("IX_Articles_Slug")
+               .IsUnique();
+
+            modelBuilder.Entity<Article>()
+                .HasIndex(a => a.CreatedAt);
+
+            modelBuilder.Entity<Article>()
+                .HasIndex(a => a.ViewCount);
+
+            modelBuilder.Entity<Article>()
+                .HasIndex(a => new { a.CategoryId, a.IsApproved });
+
+
+            modelBuilder.Entity<Category>()
+                .HasIndex(c => c.Slug)
+                .HasDatabaseName("IX_Categorys_Slug")
+                .IsUnique();
+
+
+            modelBuilder.Entity<Tag>()
+                .HasIndex(t => t.Slug)
+                .HasDatabaseName("IX_Tags_Slug")
+                .IsUnique();
+
+
+            modelBuilder.Entity<RefreshToken>()
+                .HasIndex(rt => rt.Token)
+                .HasDatabaseName("IX_RefreshTokens_Slug")
+                .IsUnique();
         }
     }
 }

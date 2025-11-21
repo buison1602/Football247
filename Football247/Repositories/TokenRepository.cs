@@ -81,7 +81,7 @@ namespace Football247.Repositories
         public async Task<LoginResponseDto> RefreshTokensAsync(string refreshToken)
         {
             var storedToken = await _authDbContext.RefreshTokens
-        .FirstOrDefaultAsync(x => x.Token == refreshToken);
+                .FirstOrDefaultAsync(x => x.Token == refreshToken);
 
             // 2. Xác thực token (không cần accessToken cũ nữa)
             if (storedToken == null || storedToken.ExpiryDate <= DateTime.UtcNow || storedToken.IsUsed)
