@@ -6,6 +6,7 @@ using Football247.Models.Entities;
 using Football247.Repositories;
 using Football247.Repositories.IRepository;
 using Football247.Services;
+using Football247.Services.Caching;
 using Football247.Services.IService;
 using Football247.SignalR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -144,11 +145,15 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.Scan(scan => scan
     .FromAssemblyOf<Program>()
-    .AddClasses(classes => classes.Where(c => c.Name.EndsWith("Service")))
+    .AddClasses(classes => classes
+        .Where(c => c.Name.EndsWith("Service"))
+        .Where(c => c.Name != nameof(RedisCacheService))
+    )
     .AsMatchingInterface()
     .WithScopedLifetime()
 );
 
+builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
 
 builder.Services.AddAutoMapper(typeof(Program));
 
