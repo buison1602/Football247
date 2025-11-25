@@ -42,8 +42,7 @@ namespace Football247.Services
 
             await _redisCacheService.RemoveDataAsync(CacheKey);
 
-            articleDomain = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleDomain.Slug);
-            ArticleDto articleDto = _mapper.Map<ArticleDto>(articleDomain);
+            ArticleDto? articleDto = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleDomain.Slug);
 
             articleDto.Images = await _unitOfWork.ImageRepository.CreateImageDto(
                 addArticleRequestDto.BgrImgs,
@@ -102,33 +101,32 @@ namespace Football247.Services
         public async Task<List<ArticlesDto>> GetByCategoryAsync(string categorySlug, int page)
         {
             string newCacheKey = $"articles_{categorySlug}_{page}";
-            List<Article>? articles = await _redisCacheService.GetDataAsync<List<Article>>(newCacheKey);
+            List<ArticlesDto>? articles = await _redisCacheService.GetDataAsync<List<ArticlesDto>>(newCacheKey);
 
             if (articles != null)
             {
-                return _mapper.Map<List<ArticlesDto>>(articles);
+                return articles;
             }
+
             articles = await _unitOfWork.ArticleRepository.GetByCategoryAsync(categorySlug, page);
-            articles ??= new List<Article>();
 
             await _redisCacheService.SetDataAsync(newCacheKey, articles);
 
-            return _mapper.Map<List<ArticlesDto>>(articles);
+            return articles;
         }
 
 
         public async Task<List<ArticlesDto>> GetByTagAsync(string tagSlug, int page)
         {
             string newCacheKey = $"articles_{tagSlug}_{page}";
-            List<Article>? articles = await _redisCacheService.GetDataAsync<List<Article>>(newCacheKey);
+            List<ArticlesDto>? articles = await _redisCacheService.GetDataAsync<List<ArticlesDto>>(newCacheKey);
 
             if (articles != null)
             {
-                return _mapper.Map<List<ArticlesDto>>(articles);
+                return articles;
             }
             
             articles = await _unitOfWork.ArticleRepository.GetByTagAsync(tagSlug, page);
-            articles ??= new List<Article>();
 
             await _redisCacheService.SetDataAsync(newCacheKey, articles);
 
@@ -139,36 +137,34 @@ namespace Football247.Services
         public async Task<ArticleDto> GetBySlugAsync(string articleSlug)
         {
             string newCacheKey = $"articles_{articleSlug}";
-            Article? articleDomain = await _redisCacheService.GetDataAsync<Article>(newCacheKey);
+            ArticleDto? articleDomain = await _redisCacheService.GetDataAsync<ArticleDto>(newCacheKey);
 
             if (articleDomain != null)
             {
-                return _mapper.Map<ArticleDto>(articleDomain);
+                return articleDomain;
             }
             articleDomain = await _unitOfWork.ArticleRepository.GetBySlugAsync(articleSlug);
-            articleDomain ??= new Article();
 
             await _redisCacheService.SetDataAsync(newCacheKey, articleDomain);
 
-            return _mapper.Map<ArticleDto>(articleDomain);
+            return articleDomain;
         }
 
 
         public async Task<List<ArticlesDto>> Get5ArticlesAsync()
         {
             string newCacheKey = $"5NewArticles";
-            List<Article>? articles = await _redisCacheService.GetDataAsync<List<Article>>(newCacheKey);
+            List<ArticlesDto>? articles = await _redisCacheService.GetDataAsync<List<ArticlesDto>>(newCacheKey);
 
             if (articles != null)
             {
-                return _mapper.Map<List<ArticlesDto>>(articles);
+                return articles;
             }
             articles = await _unitOfWork.ArticleRepository.Get5ArticlesAsync();
-            articles ??= new List<Article>();
 
             await _redisCacheService.SetDataAsync(newCacheKey, articles);
 
-            return _mapper.Map<List<ArticlesDto>>(articles);
+            return articles;
         }
 
 
@@ -181,7 +177,6 @@ namespace Football247.Services
                 return _mapper.Map<List<ArticlesDto>>(articles);
             }
             articles = await _unitOfWork.ArticleRepository.GetAllAsync();
-            articles ??= new List<Article>();
 
             await _redisCacheService.SetDataAsync(CacheKey, articles);
 

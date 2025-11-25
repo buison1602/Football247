@@ -1,16 +1,17 @@
-﻿using Football247.Models.Entities;
+﻿using Football247.Helper;
+using Football247.Models.DTOs.Article;
+using Football247.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
-using Football247.Helper;
 
 namespace Football247.Repositories.IRepository
 {
-    public interface IArticleRepository : IRepository<Article>, ISlugRepository<Article>
+    public interface IArticleRepository : IRepository<Article>, ISlugRepository<ArticleDto>
     {
         Task<Article> UpdateAsync(Guid id, Article article);
 
-        Task<List<Article>> GetByCategoryAsync(string categorySlug, int page);
+        Task<List<ArticlesDto>> GetByCategoryAsync(string categorySlug, int page);
 
-        Task<List<Article>> GetByTagAsync(string tagSlug, int page);
-        Task<List<Article>> Get5ArticlesAsync();
+        Task<List<ArticlesDto>> GetByTagAsync(string tagSlug, int page);
+        Task<List<ArticlesDto>> Get5ArticlesAsync();
     }
 }

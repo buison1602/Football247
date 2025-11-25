@@ -199,6 +199,11 @@ namespace Football247.Data
             modelBuilder.Entity<Article>()
                 .HasIndex(a => new { a.CategoryId, a.IsApproved });
 
+            modelBuilder.Entity<Article>()
+                .HasIndex(a => new { a.CategoryId, a.IsApproved, a.CreatedAt })
+                .HasDatabaseName("IX_Articles_Listing_Optimized")
+                .IsDescending(false, false, true);
+
 
             modelBuilder.Entity<Category>()
                 .HasIndex(c => c.Slug)

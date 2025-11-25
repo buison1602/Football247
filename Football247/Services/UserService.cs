@@ -22,13 +22,12 @@ namespace Football247.Services
 
         public async Task<(IdentityResult result, UserDto? userDto)> CreateUserAsync(CreateUserDto createUserDto)
         {
-            var existingUser = await _userManager.FindByEmailAsync(createUserDto.Email);
-            //Console.WriteLine("/n/n------------" + existingUser + "-------------/n/n");
-            if (existingUser != null)
+            if (!await _roleManager.RoleExistsAsync(createUserDto.Role))
             {
-                return (IdentityResult.Failed(new IdentityError { 
-                    Code = "DuplicateEmail", 
-                    Description = $"Email {createUserDto.Email} is already in use." 
+                return (IdentityResult.Failed(new IdentityError
+                {
+                    Code = "RoleNotFound",
+                    Description = $"Role '{createUserDto.Role}' does not exist."
                 }), null);
             }
 
@@ -76,8 +75,7 @@ namespace Football247.Services
 
         public async Task<IEnumerable<UserDto>> GetUsersByRoleAsync(string roleName)
         {
-            var roleExists = await _roleManager.RoleExistsAsync(roleName);
-            if (!roleExists)
+            if (!await _roleManager.RoleExistsAsync(roleName))
             {
                 throw new ArgumentException($"Role '{roleName}' does not exist.");
             }
@@ -129,7 +127,6 @@ namespace Football247.Services
                     Description = $"Username '{updateUserDto.Name}' is already taken."
                 });
             }
-
             user.UserName = updateUserDto.Name;
             user.AvatarUrl = updateUserDto.AvatarUrl;
 

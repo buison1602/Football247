@@ -31,18 +31,17 @@ namespace Football247.Services
         {
             string cacheKeyForArticle = $"{CacheKey}-{articleId}";
 
-            List<Comment>? comments = await _redisCacheService.GetDataAsync<List<Comment>>(cacheKeyForArticle);
+            List<CommentDto>? comments = await _redisCacheService.GetDataAsync<List<CommentDto>>(cacheKeyForArticle);
 
             if (comments != null)
             {
-                return _mapper.Map<List<CommentDto>>(comments);
+                return comments;
             }
 
             comments = await _unitOfWork.CommentRepository.GetCommentsByArticleIdAsync(articleId);
-            comments ??= new List<Comment>();
 
             await _redisCacheService.SetDataAsync(cacheKeyForArticle, comments);
-            return _mapper.Map<List<CommentDto>>(comments);
+            return comments;
         }
 
         public async Task<CommentDto> PostCommentAsync(AddCommentRequestDto addCommentRequestDto, string userId)

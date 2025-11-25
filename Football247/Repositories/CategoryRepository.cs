@@ -1,4 +1,5 @@
 ﻿using Football247.Data;
+using Football247.Models.DTOs.Category;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -14,29 +15,39 @@ namespace Football247.Repositories
             _db = db;
         }
 
-        public async Task<Category> GetByNameAsync(string name)
+        public async Task<CategoryDto?> GetByNameAsync(string name)
         {
-            var existingEntity = await _db.Categories.FirstOrDefaultAsync(u => u.Name == name);
-            if (existingEntity == null)
-            {
-                return null;
-            }
-            return existingEntity;
+            return await _db.Categories
+                .AsNoTracking()
+                .Where(c => c.Name == name)
+                .Select(c => new CategoryDto
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    Slug = c.Slug,
+                    CreatedAt = c.CreatedAt,
+                    UpdatedAt = c.UpdatedAt
+                })
+                .FirstOrDefaultAsync();
         }
 
-        public async Task<Category> GetBySlugAsync(string slug)
+        public async Task<CategoryDto?> GetBySlugAsync(string slug)
         {
-            //_db.Categories.Include
-            
-            var existingEntity = await _db.Categories.FirstOrDefaultAsync(u => u.Slug == slug);
-            if (existingEntity == null)
-            {
-                return null;
-            }
-            return existingEntity;
+            return await _db.Categories
+                .AsNoTracking()
+                .Where(c => c.Slug == slug)
+                .Select(c => new CategoryDto
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    Slug = c.Slug,
+                    CreatedAt = c.CreatedAt,
+                    UpdatedAt = c.UpdatedAt
+                })
+                .FirstOrDefaultAsync();
         }
 
-        public async Task<Category> UpdateAsync(Guid id, Category category)
+        public async Task<Category?> UpdateAsync(Guid id, Category category)
         {
             var existingEntity = await _db.Categories.FirstOrDefaultAsync(u => u.Id == id);
             if (existingEntity == null)

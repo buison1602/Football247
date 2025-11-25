@@ -27,15 +27,15 @@ namespace Football247.Services
         public async Task<CategoryDto> CreateAsync(AddCategoryRequestDto addCategoryRequestDto)
         {
             Category? categoryDomain;
-            
-            categoryDomain = await _unitOfWork.CategoryRepository.GetByNameAsync(addCategoryRequestDto.Name);
-            if (categoryDomain != null)
+
+            CategoryDto categoryDto = await _unitOfWork.CategoryRepository.GetByNameAsync(addCategoryRequestDto.Name);
+            if (categoryDto != null)
             {
                 throw new InvalidOperationException($"A category with the name '{addCategoryRequestDto.Name}' already exists.");
             }
 
-            categoryDomain = await _unitOfWork.CategoryRepository.GetBySlugAsync(addCategoryRequestDto.Slug);
-            if (categoryDomain != null) 
+            categoryDto = await _unitOfWork.CategoryRepository.GetBySlugAsync(addCategoryRequestDto.Slug);
+            if (categoryDto != null) 
             {
                 throw new InvalidOperationException($"A category with the slug '{addCategoryRequestDto.Slug}' already exists.");
             }
@@ -119,20 +119,18 @@ namespace Football247.Services
         {
             String newCacheKey = $"{CacheKey}_{slug}";
 
-            Category? categoryDomain = await _redisCacheService.GetDataAsync<Category>(newCacheKey);
+            CategoryDto? categoryDomain = await _redisCacheService.GetDataAsync<CategoryDto>(newCacheKey);
 
             if (categoryDomain != null)
             {
-                return _mapper.Map<CategoryDto>(categoryDomain);
+                return categoryDomain;
             }
 
             categoryDomain = await _unitOfWork.CategoryRepository.GetBySlugAsync(slug);
 
-            categoryDomain ??= new Category();
-
             await _redisCacheService.SetDataAsync(CacheKey, categoryDomain);
 
-            return _mapper.Map<CategoryDto>(categoryDomain);
+            return categoryDomain;
         }
 
 

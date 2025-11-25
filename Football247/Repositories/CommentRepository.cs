@@ -1,4 +1,5 @@
 ﻿using Football247.Data;
+using Football247.Models.DTOs.Comment;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
 using Microsoft.EntityFrameworkCore;
@@ -13,12 +14,21 @@ namespace Football247.Repositories
             _db = db;
         }
 
-        public Task<List<Comment>> GetCommentsByArticleIdAsync(Guid articleId)
+        public Task<List<CommentDto>> GetCommentsByArticleIdAsync(Guid articleId)
         {
             return _db.Comments
+                .AsNoTracking()
                 .Where(c => c.ArticleId == articleId)
-                .Include(c => c.Creator) 
                 .OrderByDescending(c => c.CreatedAt)
+                .Select(c => new CommentDto 
+                {
+                    Id = c.Id,
+                    Content = c.Content,
+                    CreatedAt = c.CreatedAt,
+                    ArticleId = c.ArticleId,
+                    CreatorId = c.CreatorId,
+                    CreatorName = c.Creator.UserName
+                })
                 .ToListAsync();
         }
     }

@@ -44,7 +44,8 @@ namespace Football247.Controllers
 
         [HttpGet]
         [Route("Get5Articles")]
-        public async Task<IActionResult> Get5Articles()
+        public async Task<IActionResult> Get5Articles([FromQuery] int limit = 5, 
+            [FromQuery] string sort = "newest")
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
 
@@ -63,7 +64,7 @@ namespace Football247.Controllers
 
 
         [HttpGet]
-        [Route("{categorySlug}")]
+        [Route("{categorySlug}/articles")]
         [Route("{categorySlug}/page/{page:int}")]
         public async Task<IActionResult> GetByCategory(string categorySlug, int page = 1)
         {
@@ -83,7 +84,7 @@ namespace Football247.Controllers
 
 
         [HttpGet]
-        [Route("tag/{tagSlug}")]
+        [Route("tag/{tagSlug}/articles")]
         [Route("tag/{tagSlug}/page/{page:int}")]
         public async Task<IActionResult> GetByTag(string tagSlug, int page = 1)
         {
@@ -103,8 +104,7 @@ namespace Football247.Controllers
 
 
         [HttpGet]
-        //[Route("{categorySlug}/{articleSlug}")]
-        [Route("list/{articleSlug}")]
+        [Route("{articleSlug}")]
         public async Task<IActionResult> GetArticleBySlug(string articleSlug)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with articleSlug: {articleSlug}");

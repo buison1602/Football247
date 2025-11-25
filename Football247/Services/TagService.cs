@@ -31,21 +31,19 @@ namespace Football247.Services
 
         public async Task<TagDto> CreateAsync(AddTagRequestDto addTagRequestDto)
         {
-            Tag? tagDomain;
-
-            tagDomain = await _unitOfWork.TagRepository.GetByNameAsync(addTagRequestDto.Name);
-            if (tagDomain != null)
+            TagDto tagDto = await _unitOfWork.TagRepository.GetByNameAsync(addTagRequestDto.Name);
+            if (tagDto != null)
             {
                 throw new InvalidOperationException($"A tag with the name '{addTagRequestDto.Name}' already exists.");
             }
 
-            tagDomain = await _unitOfWork.TagRepository.GetBySlugAsync(addTagRequestDto.Slug);
-            if (tagDomain != null)
+            tagDto = await _unitOfWork.TagRepository.GetBySlugAsync(addTagRequestDto.Slug);
+            if (tagDto != null)
             {
                 throw new InvalidOperationException($"A tag with the slug '{addTagRequestDto.Slug}' already exists.");
             }
 
-            tagDomain = _mapper.Map<Tag>(addTagRequestDto);
+            Tag? tagDomain = _mapper.Map<Tag>(addTagRequestDto);
             tagDomain = await _unitOfWork.TagRepository.CreateAsync(tagDomain);
             if (tagDomain == null)
             {
@@ -93,21 +91,18 @@ namespace Football247.Services
         public async Task<TagDto> GetBySlugAsync(string slug)
         {
             String newCacheKey = $"{CacheKey}-{slug}";
-            Tag? tagDomain = await _redisCacheService.GetDataAsync<Tag>(newCacheKey);
+            TagDto? tagDomain = await _redisCacheService.GetDataAsync<TagDto>(newCacheKey);
 
             if (tagDomain != null)
             {
-                return _mapper.Map<TagDto>(tagDomain);
+                return tagDomain;
             }
 
             tagDomain = await _unitOfWork.TagRepository.GetBySlugAsync(slug);
-            if (tagDomain == null)
-            {
-                return null;
-            }
+            
             await _redisCacheService.SetDataAsync(newCacheKey, tagDomain);
 
-            return _mapper.Map<TagDto>(tagDomain);
+            return tagDomain;
         }
 
         public async Task<TagDto?> UpdateAsync(Guid id, UpdateTagRequestDto updateTagRequestDto)

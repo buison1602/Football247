@@ -2,6 +2,6 @@
 {
     public interface ISlugRepository<T> where T : class
     {
-        Task<T> GetBySlugAsync(string slug);
+        Task<T?> GetBySlugAsync(string slug);
     }
 }

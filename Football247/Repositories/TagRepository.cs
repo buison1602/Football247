@@ -1,4 +1,5 @@
 ﻿using Football247.Data;
+using Football247.Models.DTOs.Tag;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -14,24 +15,32 @@ namespace Football247.Repositories
             _db = db;
         }
 
-        public async Task<Tag> GetByNameAsync(string name)
+        public async Task<TagDto?> GetByNameAsync(string name)
         {
-            var existingEntity = await _db.Tags.FirstOrDefaultAsync(u => u.Name == name);
-            if (existingEntity == null)
-            {
-                return null;
-            }
-            return existingEntity;
+            return await _db.Tags
+                .AsNoTracking()
+                .Where(u => u.Name == name)
+                .Select(u => new TagDto
+                {
+                    Id = u.Id,
+                    Name = u.Name,
+                    Slug = u.Slug,
+                })
+                .FirstOrDefaultAsync();
         }
 
-        public async Task<Tag> GetBySlugAsync(string slug)
+        public async Task<TagDto?> GetBySlugAsync(string slug)
         {
-            var existingEntity = await _db.Tags.FirstOrDefaultAsync(u => u.Slug == slug);
-            if (existingEntity == null)
-            {
-                return null;
-            }
-            return existingEntity;
+            return await _db.Tags
+                .AsNoTracking()
+                .Where(u => u.Slug == slug)
+                .Select(u => new TagDto
+                {
+                    Id = u.Id,
+                    Name = u.Name,
+                    Slug = u.Slug,
+                })
+                .FirstOrDefaultAsync();
         }
 
         public async Task<Tag> UpdateAsync(Guid id, Tag tag)

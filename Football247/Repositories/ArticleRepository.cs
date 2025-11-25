@@ -1,13 +1,10 @@
-﻿using Football247.Controllers;
-using Football247.Data;
+﻿using Football247.Data;
 using Football247.Helper;
+using Football247.Models.DTOs.Article;
+using Football247.Models.DTOs.Tag;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace Football247.Repositories
 {
@@ -24,69 +21,161 @@ namespace Football247.Repositories
             _logger = logger;
         }
 
-        public async Task<List<Article>> GetByCategoryAsync(string categorySlug, int page)
+        // V
+        public async Task<List<ArticlesDto>> GetByCategoryAsync(string categorySlug, int page)
         {
             int limit = MaximumArticles.Limit;
-            List<Article> articles = await _db.Articles
-                .Include(a => a.Images)
-                .Include(a => a.Category)
-                .Include(a => a.Creator)
-                .Include(a => a.ArticleTags)
-                    .ThenInclude(at => at.Tag)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                .Where(e => e.Category.Slug == categorySlug)
+            var categoryId = await _db.Categories
+                                      .AsNoTracking()
+                                      .Where(c => c.Slug == categorySlug)
+                                      .Select(c => c.Id)
+                                      .FirstOrDefaultAsync();
+
+            if (categoryId == Guid.Empty) return new List<ArticlesDto>();
+
+            return await _db.Articles
+                .AsNoTracking()
+                .Where(a => a.CategoryId == categoryId && a.IsApproved) 
+                .OrderByDescending(a => a.CreatedAt)                
+                .Skip((page - 1) * limit)
+                .Take(limit)
+                .Select(a => new ArticlesDto     
+                    {
+                        Id = a.Id,
+                        Title = a.Title,
+                        Slug = a.Slug,
+                        Description = a.Description,
+                        Priority = a.Priority,
+                        CreatedAt = a.CreatedAt,
+                        // Tự xử lý logic Map tay ở đây
+                        BgrImg = a.Images.OrderBy(i => i.DisplayOrder).Select(i => i.ImageUrl).FirstOrDefault(),
+                        Tags = a.ArticleTags.Select(at => at.Tag.Name).ToList()
+                    })
+                .ToListAsync();
+        }
+
+        public async Task<ArticleDto?> GetBySlugAsync(string articleSlug)
+        {
+            //var existingEntity = await _db.Articles
+            //    .AsNoTracking()
+            //    .Include(a => a.Images)
+            //    .Include(a => a.Category)
+            //    .Include(a => a.Creator)
+            //    .Include(a => a.ArticleTags)
+            //        // Tải đối tượng Tag liên quan đến TỪNG ArticleTag trong danh sách ArticleTags
+            //        .ThenInclude(at => at.Tag) 
+            //    .FirstOrDefaultAsync(u => u.Slug == articleSlug);
+            //if (existingEntity == null)
+            //{
+            //    return new Article();
+            //}
+            //return existingEntity;
+
+            return await _db.Articles
+                .AsNoTracking()
+                .Where(a => a.Slug == articleSlug)
+                .Select(a => new ArticleDto
+                {
+                    Id = a.Id,
+                    Title = a.Title,
+                    Slug = a.Slug,
+                    Description = a.Description,
+                    Content = a.Content,
+                    Priority = a.Priority,
+                    CreatedAt = a.CreatedAt,
+                    CreatorId = Guid.Parse(a.CreatorId),
+                    CreatorName = a.Creator.UserName,
+                    BgrImg = a.Images.OrderBy(i => i.DisplayOrder).Select(i => i.ImageUrl).ToList(),
+                    Tags = a.ArticleTags.Select(at => new TagDto
+                    {
+                        // Giả sử TagDto có Id và Name
+                        Id = at.Tag.Id,
+                        Name = at.Tag.Name,
+                        Slug = at.Tag.Slug
+                    }).ToList(),
+                })
+                .FirstOrDefaultAsync();
+        }
+
+        // V
+        public async Task<List<ArticlesDto>> GetByTagAsync(string tagSlug, int page)
+        {
+            int limit = MaximumArticles.Limit;
+
+            var tagId = await _db.Tags
+                                      .AsNoTracking()
+                                      .Where(c => c.Slug == tagSlug)
+                                      .Select(c => c.Id)
+                                      .FirstOrDefaultAsync();
+
+            if (tagId == Guid.Empty) return new List<ArticlesDto>();
+
+
+            return await _db.Articles
+                .AsNoTracking()
+                .Where(a => a.ArticleTags.Any(at => at.TagId == tagId) && a.IsApproved)
                 .OrderByDescending(a => a.CreatedAt)
                 .Skip((page - 1) * limit)
                 .Take(limit)
+                .Select(a => new ArticlesDto
+                {
+                    Id = a.Id,
+                    Title = a.Title,
+                    Slug = a.Slug,
+                    Description = a.Description,
+                    Priority = a.Priority,
+                    CreatedAt = a.CreatedAt,
+                    BgrImg = a.Images.OrderBy(i => i.DisplayOrder).Select(i => i.ImageUrl).FirstOrDefault(),
+                    Tags = a.ArticleTags.Select(at => at.Tag.Name).ToList()
+                })
                 .ToListAsync();
-
-            return articles;
         }
 
-        public async Task<Article> GetBySlugAsync(string slug)
-        {
-            var existingEntity = await _db.Articles
-                .Include(a => a.Images)
-                .Include(a => a.Category)
-                .Include(a => a.Creator)
-                .Include(a => a.ArticleTags)
-                    // Tải đối tượng Tag liên quan đến TỪNG ArticleTag trong danh sách ArticleTags
-                    .ThenInclude(at => at.Tag) 
-                .FirstOrDefaultAsync(u => u.Slug == slug);
-            if (existingEntity == null)
-            {
-                return null;
-            }
-            return existingEntity;
-        }
-
-        public async Task<List<Article>> GetByTagAsync(string tagSlug, int page)
+        // Chưa có page
+        public override async Task<List<Article>> GetAllAsync()
         {
             int limit = MaximumArticles.Limit;
-            List<Article> articles = await _db.Articles
+
+            return await _db.Articles
                 .Include(a => a.Images)
-                .Include(a => a.Category) 
+                .Include(a => a.Category)
                 .Include(a => a.Creator)
                 .Include(a => a.ArticleTags)
                     .ThenInclude(at => at.Tag)
-                .Where(a => a.ArticleTags.Any(at => at.Tag.Slug == tagSlug))
                 .OrderByDescending(a => a.CreatedAt)
-                .Skip((page - 1) * limit)
                 .Take(limit)
                 .ToListAsync();
+        }
 
-            return articles;
+        // V
+        public async Task<List<ArticlesDto>> Get5ArticlesAsync()
+        {
+            int limit = MaximumArticles.FiveArticles;
+
+            return await _db.Articles
+                .AsNoTracking()
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(limit)
+                .Select(a => new ArticlesDto
+                {
+                    Id = a.Id,
+                    Title = a.Title,
+                    Slug = a.Slug,
+                    Description = a.Description,
+                    Priority = a.Priority,
+                    CreatedAt = a.CreatedAt,
+                    BgrImg = a.Images.OrderBy(i => i.DisplayOrder).Select(i => i.ImageUrl).FirstOrDefault(),
+                    Tags = a.ArticleTags.Select(at => at.Tag.Name).ToList()
+                })
+                .ToListAsync();
         }
 
         public async Task<Article> UpdateAsync(Guid id, Article category)
         {
-            var existingEntity = await _db.Articles
-                .Include(a => a.Images)
-                .Include(a => a.Category)
-                .Include(a => a.Creator)
-                .FirstOrDefaultAsync(u => u.Id == id);
+            var existingEntity = await _db.Articles.FirstOrDefaultAsync(u => u.Id == id);
             if (existingEntity == null)
             {
-                return null;
+                return new Article();
             }
 
             // Map DTO to Domain Model 
@@ -116,29 +205,15 @@ namespace Football247.Repositories
             return entity;
         }
 
-        public override async Task<List<Article>> GetAllAsync()
-        {
-            return await _db.Articles
-                .Include(a => a.Images)
-                .Include(a => a.Category)
-                .Include(a => a.Creator)
-                .Include(a => a.ArticleTags)
-                    .ThenInclude(at => at.Tag)
-                .OrderByDescending(a => a.CreatedAt)
-                .ToListAsync();
-        }
-
         public override async Task<Article> DeleteAsync(Guid id)
         {
             var existingEntity = await _db.Articles
                  .Include(a => a.Images)
-                 .Include(a => a.Category)
-                 .Include(a => a.Creator)
                  .FirstOrDefaultAsync(u => u.Id == id);
 
             if (existingEntity == null)
             {
-                return null;
+                return new Article();
             }
 
             // Xóa thủ công các Images liên quan
@@ -179,19 +254,6 @@ namespace Football247.Repositories
             await _db.SaveChangesAsync();
 
             return existingEntity;
-        }
-
-        public async Task<List<Article>> Get5ArticlesAsync()
-        {
-            return await _db.Articles
-                .Include(a => a.Images)
-                .Include(a => a.Category)
-                .Include(a => a.Creator)
-                .Include(a => a.ArticleTags)
-                    .ThenInclude(at => at.Tag)
-                .OrderByDescending(a => a.CreatedAt)
-                .Take(5)
-                .ToListAsync();
         }
     }
 }
