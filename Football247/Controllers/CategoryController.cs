@@ -1,4 +1,5 @@
-﻿using Football247.Models.DTOs.Category;
+﻿using Football247.Authorization;
+using Football247.Models.DTOs.Category;
 using Football247.Services.IService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -82,7 +83,8 @@ namespace Football247.Controllers
 
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
+        [Authorize(Policy = Permissions.Categories.Create)]
         public async Task<IActionResult> Create([FromBody] AddCategoryRequestDto addCategoryRequestDto)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
@@ -108,7 +110,8 @@ namespace Football247.Controllers
 
         [HttpPut]
         [Route("{id:Guid}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
+        [Authorize(Policy = Permissions.Categories.Edit)]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCategoryRequestDto updateCategoryRequestDto)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
@@ -131,7 +134,8 @@ namespace Football247.Controllers
 
         [HttpDelete]
         [Route("{id:Guid}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
+        [Authorize(Policy = Permissions.Categories.Delete)]
         public async Task<IActionResult> Delete(Guid id)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");

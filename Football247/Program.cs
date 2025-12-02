@@ -1,3 +1,4 @@
+using Football247.Authorization;
 using Football247.Data;
 using Football247.IdentityExtensions;
 using Football247.Mappings;
@@ -159,6 +160,18 @@ builder.Services.AddAutoMapper(typeof(Program));
 
 builder.Services.AddMemoryCache();
 
+builder.Services.AddAuthorization(options =>
+{
+    // Lấy tất cả permission đã định nghĩa
+    var permissions = Permissions.GetAllPermissions();
+
+    foreach (var permission in permissions)
+    {
+        options.AddPolicy(permission, policy =>
+            policy.RequirePermission(permission)); 
+    }
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -166,6 +179,10 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    await app.ApplyMigrations();
+
+    await app.SeedRolesAndPermissions();
 }
 
 app.UseMiddleware<ExceptionHandlerMiddleware>();

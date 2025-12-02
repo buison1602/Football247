@@ -30,7 +30,7 @@ namespace Football247.Models.DTOs.Article
         [MinLength(1, ErrorMessage = "Must have at least one caption.")]
         public List<string> Captions { get; set; } = new List<string>();
 
-        public byte IsApproved { get; set; } = 0;
+        public byte IsApproved { get; set; } = 1;
 
         [Required]
         public Guid CreatorId { get; set; }

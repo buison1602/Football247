@@ -1,4 +1,5 @@
-﻿using Football247.Data;
+﻿using Football247.Authorization;
+using Football247.Data;
 using Football247.Models.DTOs.Auth;
 using Football247.Models.Entities;
 using Football247.Repositories.IRepository;
@@ -27,10 +28,24 @@ namespace Football247.Repositories
         public async Task<LoginResponseDto> CreateTokensAsync(ApplicationUser user)
         {
             var roles = await _userManager.GetRolesAsync(user);
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            // NEW
+            var permissions = await (
+                    from role in _authDbContext.Roles
+                    join claim in _authDbContext.RoleClaims on role.Id equals claim.RoleId
+                    where roles.Contains(role.Name!) &&
+                        claim.ClaimType == CustomClaimTypes.Permission
+                    select claim.ClaimValue)
+                .Distinct()
+                .ToArrayAsync();
+
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Email, user.Email),
-                // Sử dụng user.Id từ ApplicationUser
                 new Claim(ClaimTypes.NameIdentifier, user.Id)
             };
 
@@ -39,9 +54,10 @@ namespace Football247.Repositories
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-
-            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            foreach (var permission in permissions)
+            {
+                claims.Add(new Claim(CustomClaimTypes.Permission, permission));
+            }
 
             var accessTokenExpiry = DateTime.UtcNow.AddMinutes(_configuration.GetValue<int>("Jwt:AccessTokenValidityInMinutes"));
 
@@ -67,7 +83,6 @@ namespace Football247.Repositories
             await _authDbContext.RefreshTokens.AddAsync(refreshToken);
             await _authDbContext.SaveChangesAsync();
 
-            // Trả về DTO chứa cả hai token
             return new LoginResponseDto
             {
                 UserId = user.Id,

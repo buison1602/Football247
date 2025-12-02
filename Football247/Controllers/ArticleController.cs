@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Azure.Core;
+using Football247.Authorization;
 using Football247.Models.DTOs.Article;
 using Football247.Services.IService;
 using Microsoft.AspNetCore.Authorization;
@@ -124,7 +125,8 @@ namespace Football247.Controllers
 
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
+        [Authorize(Policy = Permissions.Articles.Create)]
         public async Task<IActionResult> Create([FromForm] AddArticleRequestDto addArticleRequestDto)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
@@ -153,7 +155,8 @@ namespace Football247.Controllers
 
         [HttpPut]
         [Route("{id:guid}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
+        [Authorize(Policy = Permissions.Articles.Edit)]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateArticleRequestDto updateArticleRequestDto)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with id: {id}");
@@ -177,7 +180,8 @@ namespace Football247.Controllers
 
         [HttpDelete]
         [Route("{id:guid}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
+        [Authorize(Policy = Permissions.Articles.Delete)]
         public async Task<IActionResult> Delete(Guid id)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name} with id: {id}");

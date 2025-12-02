@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Football247.Authorization;
 using Football247.Models.DTOs.Category;
 using Football247.Models.DTOs.Tag;
 using Football247.Models.Entities;
@@ -66,7 +67,8 @@ namespace Football247.Controllers
 
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
+        [Authorize(Policy = Permissions.Tags.Create)]
         public async Task<IActionResult> Create([FromBody] AddTagRequestDto addTagRequestDto)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
@@ -87,7 +89,8 @@ namespace Football247.Controllers
 
         [HttpPut]
         [Route("{id:Guid}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
+        [Authorize(Policy = Permissions.Tags.Edit)]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTagRequestDto updateTagRequestDto)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
@@ -107,7 +110,8 @@ namespace Football247.Controllers
 
         [HttpDelete]
         [Route("{id:Guid}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
+        [Authorize(Policy = Permissions.Tags.Delete)]
         public async Task<IActionResult> Delete(Guid id)
         {
             _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");

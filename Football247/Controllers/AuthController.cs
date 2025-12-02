@@ -79,6 +79,7 @@ namespace Football247.Controllers
 
         [HttpPost]
         [Route("Refresh")]
+        [Authorize]
         public async Task<IActionResult> Refresh()
         {
             var refreshToken = Request.Cookies["refreshToken"];
@@ -121,6 +122,7 @@ namespace Football247.Controllers
 
         [HttpPost]
         [Route("Logout")]
+        [Authorize]
         public async Task<IActionResult> Logout()
         {
             var refreshToken = Request.Cookies["refreshToken"];
