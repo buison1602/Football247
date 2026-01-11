@@ -132,14 +132,29 @@ builder.Services.AddAuthentication(options =>
     }
 );
 
+// =============================================================
+// 🔒 1. CẤU HÌNH CORS (BẢO MẬT CAO)
+// =============================================================
+var myAllowSpecificOrigins = "AllowTluHubOrigins";
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("Dev", policy =>
-        policy.WithOrigins("http://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials()   
-    );
+    options.AddPolicy(name: myAllowSpecificOrigins,
+                      policy =>
+                      {
+                          policy.WithOrigins(
+                                    // ✅ Chỉ cho phép Domain thật của Frontend
+                                    "https://tlu-hub-develop.vercel.app", 
+                                    
+                                    // ✅ Cho phép Localhost để bạn test dưới máy (nếu cần)
+                                    // Nếu không thích bạn có thể xóa dòng localhost này đi
+                                    "http://localhost:3000",
+                                    "http://localhost:5173"
+                                )
+                                .AllowAnyHeader()
+                                .AllowAnyMethod()
+                                .AllowCredentials(); // Cho phép gửi Cookie/Auth nếu sau này cần
+                      });
 });
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -199,8 +214,11 @@ app.UseStaticFiles(new StaticFileOptions
 // Bật cơ chế định tuyến (Routing)
 app.UseRouting();
 
-// Áp dụng chính sách CORS - Đặt sau UseRouting và trước UseAuthentication/UseAuthorization
-app.UseCors("Dev");
+// =============================================================
+// 🔒 2. KÍCH HOẠT POLICY VỪA TẠO
+// =============================================================
+// Quan trọng: Phải đặt UseCors TRƯỚC UseAuthorization
+app.UseCors(myAllowSpecificOrigins);
 
 // Xác thực người dùng
 app.UseAuthentication();

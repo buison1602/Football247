@@ -14,6 +14,7 @@ namespace Football247.Controllers
     public class ArticleController : ControllerBase
     {
         private readonly ILogger<ArticleController> _logger;
+
         private readonly IArticleService _articleService;
 
         public ArticleController(ILogger<ArticleController> logger, IArticleService articleService)
