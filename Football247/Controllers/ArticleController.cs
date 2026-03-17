@@ -126,7 +126,6 @@ namespace Football247.Controllers
 
 
         [HttpPost]
-        //[Authorize(Roles = "Admin")]
         [Authorize(Policy = Permissions.Articles.Create)]
         public async Task<IActionResult> Create([FromForm] AddArticleRequestDto addArticleRequestDto)
         {

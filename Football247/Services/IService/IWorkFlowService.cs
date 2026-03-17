@@ -1,0 +1,11 @@
+﻿
+
+using Football247.Models.DTOs.Article;
+
+namespace Football247.Services.IService
+{
+    public interface IWorkFlowService
+    {
+        Task<ArticleDto> ApproveArticleAsync(Guid articleId);
+    }
+}

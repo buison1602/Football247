@@ -9,6 +9,7 @@
             public const string Create = "Permissions.Articles.Create";
             public const string Edit = "Permissions.Articles.Edit";
             public const string Delete = "Permissions.Articles.Delete";
+            public const string Approve = "Permissions.Articles.Approve";
             // Quyền đặc biệt
             public const string DeleteAny = "Permissions.Articles.DeleteAny"; // Admin xóa bất kỳ bài nào
         }
