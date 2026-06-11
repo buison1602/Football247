@@ -1,6 +1,4 @@
-﻿
-
-using Football247.Models.DTOs.Article;
+﻿using Football247.Domain.Models.EntityModels.DTOs.Article;
 
 namespace Football247.Services.IService
 {

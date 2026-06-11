@@ -1,0 +1,87 @@
+﻿using AutoMapper;
+using Football247.Domain.Models.CommandModels.ArticleCmdModel;
+using Football247.Domain.Models.EntityModels.DTOs.Article;
+using Football247.Repositories.IRepository;
+using Football247.Shared.Enum.ErrorCode;
+using MediatR;
+using Microsoft.AspNetCore.Http;
+using Shared.Response;
+
+namespace Football247.Application.Command.ArticleCmd
+{
+    public class UpdateArticleCommand : UpdateArticleCommandModel, IRequest<MethodResult<ArticleDto>>
+    {
+    }
+
+    public class UpdateArticleHandler : IRequestHandler<UpdateArticleCommand, MethodResult<ArticleDto>>
+    {
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
+
+        public UpdateArticleHandler(IUnitOfWork unitOfWork, IMapper mapper)
+        {
+            _unitOfWork = unitOfWork;
+            _mapper = mapper;
+        }
+
+        public async Task<MethodResult<ArticleDto>> Handle(UpdateArticleCommand request, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            var methodResult = new MethodResult<ArticleDto>();
+
+            #region Validate dữ liệu từ request
+            if (string.IsNullOrEmpty(request.Title))
+            {
+                methodResult.AddError(StatusCodes.Status400BadRequest, nameof(EnumSystemErrorCode.Required), nameof(request.Title));
+                return methodResult;
+            }
+
+            if (string.IsNullOrEmpty(request.Slug))
+            {
+                methodResult.AddError(StatusCodes.Status400BadRequest, nameof(EnumSystemErrorCode.Required), nameof(request.Slug));
+                return methodResult;
+            }
+
+            if (string.IsNullOrEmpty(request.Description))
+            {
+                methodResult.AddError(StatusCodes.Status400BadRequest, nameof(EnumSystemErrorCode.Required), nameof(request.Description));
+                return methodResult;
+            }
+
+            if (string.IsNullOrEmpty(request.Content))
+            {
+                methodResult.AddError(StatusCodes.Status400BadRequest, nameof(EnumSystemErrorCode.Required), nameof(request.Content));
+                return methodResult;
+            }
+
+            if (request.CategoryId == Guid.Empty)
+            {
+                methodResult.AddError(StatusCodes.Status400BadRequest, nameof(EnumSystemErrorCode.Required), nameof(request.CategoryId));
+                return methodResult;
+            }
+            #endregion
+
+            var articleExist = await _unitOfWork.ArticleRepository.GetByIdAsync(request.Id);
+            if (articleExist == null)
+            {
+                methodResult.AddError(StatusCodes.Status400BadRequest, nameof(EnumSystemErrorCode.DataNotExist), nameof(request.Id));
+                return methodResult;
+            }
+            var articleDomain = _mapper.Map(request, articleExist);
+
+            articleDomain = await _unitOfWork.ArticleRepository.UpdateAsync(request.Id, articleDomain);
+            if (articleDomain == null)
+            {
+                methodResult.AddError(StatusCodes.Status500InternalServerError, nameof(EnumSystemErrorCode.ServerError), nameof(request.Id));
+                return methodResult;
+            }
+
+            await _unitOfWork.SaveAsync();
+
+            methodResult.Result = _mapper.Map<ArticleDto>(articleDomain);
+            methodResult.StatusCode = StatusCodes.Status200OK;
+
+            return methodResult;
+        }
+    }
+}

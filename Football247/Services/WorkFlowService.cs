@@ -1,5 +1,5 @@
 ﻿using AutoMapper;
-using Football247.Models.DTOs.Article;
+using Football247.Domain.Models.EntityModels.DTOs.Article;
 using Football247.Repositories.IRepository;
 
 namespace Football247.Services

@@ -1,139 +1,90 @@
-﻿using Football247.Models.DTOs.User;
-using Football247.Models.Entities;
-using Football247.Repositories.IRepository;
-using Football247.Services.IService;
+﻿using Football247.Application.Command.UserCmd;
+using Football247.Application.Query.Role;
+using Football247.Application.Query.UserQuery;
+using Football247.Domain.Models.CommandModels.UserCmdModel;
+using Football247.Domain.Models.EntityModels.DTOs.Role;
+using Football247.Domain.Models.EntityModels.DTOs.User;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Shared.Common.Models.Paging;
+using Shared.Response;
+using System.Net;
 
 namespace Football247.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
+    //[Authorize(Roles = "Admin")]
     public class UserController : ControllerBase
     {
-        private readonly IUserService _userService;
+        private readonly IMediator _mediator;
 
-        public UserController(IUserService userService)
+        public UserController(IMediator mediator)
         {
-            _userService = userService;
+            _mediator = mediator;
         }
 
 
-        [HttpGet]
-        public async Task<IActionResult> GetAllUsers()
+        [HttpGet("get-all")]
+        [ProducesResponseType(typeof(MethodResult<PagingItemsModel<UserDto>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetAllUsers([FromQuery] GetAllUsersQuery request)
         {
-            var users = await _userService.GetAllUsersAsync();
-            return Ok(users);
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
 
         [HttpGet("role/{roleName}")]
-        public async Task<IActionResult> GetUsersByRole(string roleName)
+        [ProducesResponseType(typeof(MethodResult<PagingItemsModel<UserDto>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetUsersByRole([FromQuery] GetUsersByRoleQuery request)
         {
-            try
-            {
-                var users = await _userService.GetUsersByRoleAsync(roleName);
-                return Ok(users);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { Message = ex.Message });
-            }
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetUserById(string id)
+        [HttpGet("id")]
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetUserById([FromQuery] GetUserByIdQuery request)
         {
-            var user = await _userService.GetUserByIdAsync(id);
-
-            if (user == null)
-            {
-                return NotFound(new { Message = "User not found." });
-            }
-
-            return Ok(user);
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
 
         [HttpPost]
-        public async Task<IActionResult> CreateUser([FromBody] CreateUserDto createUserDto)
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> CreateUser([FromBody] CreateUserCommand request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            try
-            {
-                var (result, userDto) = await _userService.CreateUserAsync(createUserDto);
-
-                if (result.Succeeded)
-                {
-                    return CreatedAtAction(nameof(GetUserById), new { id = userDto.Id }, userDto);
-                }
-
-                return BadRequest(result.Errors);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { Message = ex.Message });
-            }
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUser(string id, [FromBody] UpdateUserDto updateUserDto)
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> UpdateUser([FromRoute] Guid id, [FromBody] UpdateUserCommand request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            try
-            {
-                var result = await _userService.UpdateUserAsync(id, updateUserDto);
-                if (result.Succeeded)
-                {
-                    return NoContent();
-                }
-                if (result.Errors.Any(e => e.Code == "NotFound"))
-                {
-                    return NotFound(new { Message = result.Errors.First().Description });
-                }
-                return BadRequest(result.Errors);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { Message = ex.Message });
-            }
+            request.Id = id;
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser(string id)
+        [HttpDelete("id")]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> DeleteUser([FromBody] DeleteUserCommand request)
         {
-            try
-            {
-                var result = await _userService.DeleteUserAsync(id);
-                if (result.Succeeded)
-                {
-                    return NoContent();
-                }
-                if (result.Errors.Any(e => e.Code == "NotFound"))
-                {
-                    return NotFound(new { Message = result.Errors.First().Description });
-                }
-                return BadRequest(result.Errors);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { Message = ex.Message });
-            }
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
     }
 }

@@ -1,130 +1,70 @@
-﻿using AutoMapper;
+﻿using Football247.Application.Command.TagCmd;
+using Football247.Application.Query.TagQuery;
 using Football247.Authorization;
-using Football247.Models.DTOs.Category;
-using Football247.Models.DTOs.Tag;
-using Football247.Models.Entities;
-using Football247.Repositories.IRepository;
-using Football247.Services.IService;
+using Football247.Domain.Models.EntityModels.DTOs.Tag;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
-using System.Reflection;
+using Shared.Common.Models.Paging;
+using Shared.Response;
+using System.Net;
 
 namespace Football247.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     [ApiController]
     public class TagController : ControllerBase
     {
-        private readonly ILogger<TagController> _logger;
-        private readonly ITagService _tagService;
+        private readonly IMediator _mediator;
 
-        public TagController(ILogger<TagController> logger, ITagService tagService)
+        public TagController(IMediator mediator)
         {
-            _logger = logger;
-            _tagService = tagService;
+            _mediator = mediator;
         }
 
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        [ProducesResponseType(typeof(MethodResult<PagingItemsModel<TagDto>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<TagDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetAll([FromQuery] GetAllTagQuery request)
         {
-            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
-
-            try
-            {
-                List<TagDto> tagDtos = await _tagService.GetAllAsync();
-
-                return Ok(tagDtos);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-
-        [HttpGet]
-        [Route("{slug}")]
-        public async Task<IActionResult> GetBySlug(string slug)
-        {
-            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
-
-            try
-            {
-                TagDto tagDto = await _tagService.GetBySlugAsync(slug);
-
-                return Ok(tagDto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
-                return StatusCode(500, ex.Message);
-            }
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
 
         [HttpPost]
-        //[Authorize(Roles = "Admin")]
-        [Authorize(Policy = Permissions.Tags.Create)]
-        public async Task<IActionResult> Create([FromBody] AddTagRequestDto addTagRequestDto)
+        //[Authorize(Policy = Permissions.Tags.Create)]
+        [ProducesResponseType(typeof(MethodResult<TagDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<TagDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> Create([FromQuery] CreateTagCommand request)
         {
-            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
-
-            try
-            {
-                TagDto tagDto = await _tagService.CreateAsync(addTagRequestDto);
-
-                return CreatedAtAction(nameof(GetBySlug), new { slug = tagDto.Slug }, tagDto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
-                return StatusCode(500, ex.Message);
-            }
+            var commandResult = await _mediator.Send(request).ConfigureAwait(false);
+            return commandResult.GetActionResult();
         }
 
 
         [HttpPut]
-        [Route("{id:Guid}")]
-        //[Authorize(Roles = "Admin")]
-        [Authorize(Policy = Permissions.Tags.Edit)]
-        public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTagRequestDto updateTagRequestDto)
+        [Route("update")]
+        //[Authorize(Policy = Permissions.Tags.Edit)]
+        [ProducesResponseType(typeof(MethodResult<TagDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<TagDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> Update([FromQuery] UpdateTagCommand request)
         {
-            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
-            try
-            {
-                TagDto tagDto = await _tagService.UpdateAsync(id, updateTagRequestDto);
-
-                return Ok(tagDto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
-                return StatusCode(500, ex.Message);
-            }
+            var commandResult = await _mediator.Send(request).ConfigureAwait(false);
+            return commandResult.GetActionResult();
         }
 
 
         [HttpDelete]
-        [Route("{id:Guid}")]
-        //[Authorize(Roles = "Admin")]
-        [Authorize(Policy = Permissions.Tags.Delete)]
-        public async Task<IActionResult> Delete(Guid id)
+        [Route("delete")]
+        //[Authorize(Policy = Permissions.Tags.Delete)]
+        [ProducesResponseType(typeof(MethodResult<TagDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<TagDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> Delete([FromQuery] DeleteTagCommand request)
         {
-            _logger.LogInformation($"Start {MethodBase.GetCurrentMethod()?.Name}");
-            try
-            {
-                TagDto tagDto = await _tagService.DeleteAsync(id);
-                return Ok(tagDto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod()?.Name} error: {ex.Message}");
-                return StatusCode(500, ex.Message);
-            }
+            var commandResult = await _mediator.Send(request).ConfigureAwait(false);
+            return commandResult.GetActionResult();
         }
     }
 }

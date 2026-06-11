@@ -1,44 +1,71 @@
-﻿using Football247.Models.DTOs.Comment;
-using Football247.Models.Entities;
-using Football247.Services.IService;
+using Football247.Application.Command.CommentCmd;
+using Football247.Application.Query.CommentQuery;
+using Football247.Domain.Models.EntityModels.DTOs.Comment;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using Shared.Response;
+using System.Net;
 
 namespace Football247.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     public class CommentController : ControllerBase
     {
-        private readonly ICommentService _commentService;
+        private readonly IMediator _mediator;
 
-        public CommentController(IRealtimeService realtimeService, ICommentService commentService)
+        public CommentController(IMediator mediator)
         {
-            _commentService = commentService;
+            _mediator = mediator;
         }
 
-
-        [HttpGet("{articleId:guid}")]
-        public async Task<IActionResult> GetCommentsByArticleId(Guid articleId)
+        [HttpGet("articleId")]
+        [ProducesResponseType(typeof(MethodResult<List<CommentDto>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<List<CommentDto>>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetCommentsByArticleId([FromQuery] Guid articleId)
         {
-            List<CommentDto> commentsDto = await _commentService.GetCommentsByArticleIdAsync(articleId);
-
-            return Ok(commentsDto);
+            var result = await _mediator.Send(new GetCommentsByArticleQuery { ArticleId = articleId });
+            return Ok(result);
         }
-
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> PostComment([FromBody] AddCommentRequestDto addCommentRequestDto)
+        [ProducesResponseType(typeof(MethodResult<CommentDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(CommentDto), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> PostComment([FromBody] CreateCommentCommand command)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId == null)
-                return Unauthorized();
+            var commandResult = await _mediator.Send(command).ConfigureAwait(false);
+            return commandResult.GetActionResult();
+        }
 
-            CommentDto createdCommentDto = await _commentService.PostCommentAsync(addCommentRequestDto, userId);
+        [HttpPost("report")]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> ReportComment([FromBody] ReportCommentCommand command)
+        {
+            var commandResult = await _mediator.Send(command).ConfigureAwait(false);
+            return commandResult.GetActionResult();
+        }
 
-            return Ok(createdCommentDto);
+        [Authorize]
+        [HttpDelete("{commentId}")]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> DeleteComment([FromRoute] Guid commentId)
+        {
+            var commandResult = await _mediator.Send(new DeleteCommentCommand { CommentId = commentId }).ConfigureAwait(false);
+            return commandResult.GetActionResult();
+        }
+
+        [Authorize]
+        [HttpGet("get-comment-reported")]
+        [ProducesResponseType(typeof(MethodResult<List<CommentDto>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<List<CommentDto>>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetReportedComments()
+        {
+            var commandResult = await _mediator.Send(new GetCommentReportedQuery()).ConfigureAwait(false);
+            return commandResult.GetActionResult();
         }
     }
 }

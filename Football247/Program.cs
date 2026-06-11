@@ -1,26 +1,36 @@
+using Football247.Application.Common.Data;
+using Football247.Application.Service.FootballBackground;
+using Football247.Application.Service.PaymentService;
+using Football247.Application.Service.UserService;
+using Football247.Application.SignalR;
 using Football247.Authorization;
-using Football247.Data;
+using Football247.Domain.ValueSettings;
 using Football247.IdentityExtensions;
-using Football247.Mappings;
+using Football247.Infrastructure;
+using Football247.Infrastructure.Services.UserService;
 using Football247.Middleware;
 using Football247.Models.Entities;
 using Football247.Repositories;
 using Football247.Repositories.IRepository;
-using Football247.Services;
 using Football247.Services.Caching;
-using Football247.Services.IService;
-using Football247.SignalR;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using PayOS;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSignalR();
+
+builder.Services.Configure<AppSetting>(builder.Configuration);
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<AppSetting>>().Value);
+var appSetting = builder.Configuration.Get<AppSetting>() ?? new AppSetting();
 
 // Add services to the container.
 
@@ -36,9 +46,6 @@ builder.Services.AddEndpointsApiExplorer();
 
 // Để sử dụng IHttpContextAccessor trong các lớp khác như repository, service, ...
 builder.Services.AddHttpContextAccessor();
-
-builder.Services.AddScoped<IRealtimeService, RealtimeService>();
-
 
 // Cấu hình JWT Bearer Authentication
 builder.Services.AddSwaggerGen(options =>
@@ -75,6 +82,47 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+var payOsClientId = builder.Configuration["PayOS:ClientId"];
+var payOsApiKey = builder.Configuration["PayOS:ApiKey"];
+var payOsChecksumKey = builder.Configuration["PayOS:ChecksumKey"];
+
+// 2. Đăng ký PayOSClient vào hệ thống (BẮT BUỘC PHẢI CÓ)
+if (!string.IsNullOrEmpty(payOsClientId) && !string.IsNullOrEmpty(payOsApiKey) && !string.IsNullOrEmpty(payOsChecksumKey))
+{
+    builder.Services.AddSingleton(new PayOSClient(payOsClientId, payOsApiKey, payOsChecksumKey));
+}
+else
+{
+    // Cảnh báo nếu bạn quên cấu hình trong appsettings
+    Console.WriteLine("⚠️ THIẾU CẤU HÌNH PAYOS TRONG APPSETTINGS.JSON!");
+}
+
+// 3. Đăng ký PaymentService của bạn
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+//builder.Services.AddScoped<IPaymentService, PaymentService>();
+
+builder.Services.AddHttpClient<FootballDataClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.football-data.org");
+    client.DefaultRequestHeaders.Add("X-Auth-Token",
+        builder.Configuration["FootballData:ApiToken"]);
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+// 2. Job (Scoped — tạo mới mỗi cycle)
+builder.Services.AddScoped<FootballSyncJob>();
+
+// 3. Background Service
+builder.Services.AddHostedService<FootballDataBackgroundService>();
+
+
+// Thêm dòng này để BackgroundService crash không làm tắt app
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+});
+
 builder.Services.AddDbContext<Football247DbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Football247ConnectionString")));
 
@@ -85,7 +133,7 @@ builder.Services.AddStackExchangeRedisCache(option =>
     option.InstanceName = "Football247_";
 });
 
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>() 
+builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>() 
     .AddEntityFrameworkStores<Football247DbContext>()
     .AddDefaultTokenProviders()
     // cấu hình quy tắc cho email
@@ -101,6 +149,12 @@ builder.Services.Configure<IdentityOptions>(options =>
     options.Password.RequireUppercase = true;
     options.Password.RequiredLength = 6;
     options.Password.RequiredUniqueChars = 1;
+
+    // Cho phép khoảng trắng và các ký tự tiếng Việt có dấu
+    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+ áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđĐ";
+    
+    // Đảm bảo mỗi Email chỉ đăng ký được 1 tài khoản
+    options.User.RequireUniqueEmail = true;
 });
 
 // * ĐĂNG KÝ Authentication
@@ -112,6 +166,7 @@ builder.Services.AddAuthentication(options =>
     })
     .AddJwtBearer(options =>
         {
+            options.SaveToken = true;
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -122,6 +177,45 @@ builder.Services.AddAuthentication(options =>
                 ValidAudience = builder.Configuration["Jwt:Audience"],
                 IssuerSigningKey = new SymmetricSecurityKey(
                     Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            };
+
+            options.Events = new JwtBearerEvents
+            {
+                //OnMessageReceived = context =>
+                //{
+                //    // Đọc access_token từ query string
+                //    var accessToken = context.Request.Query["access_token"];
+
+                //    // Nếu request đến một Hub SignalR (đường dẫn bắt đầu bằng /hubs)
+                //    var path = context.HttpContext.Request.Path;
+                //    if (!string.IsNullOrEmpty(accessToken) && (path.StartsWithSegments("/hubs") || path.StartsWithSegments("/football247hub")))
+                //    {
+                //        context.Token = accessToken;
+                //    }
+                //    return Task.CompletedTask;
+                //}
+
+                // 🌟 THÊM ĐOẠN NÀY ĐỂ BẮT LOG LỖI AUTH 🌟
+                OnAuthenticationFailed = context =>
+                {
+                    Console.WriteLine($"\n❌ [SIGNALR AUTH ERROR]: {context.Exception.Message}\n");
+                    return Task.CompletedTask;
+                },
+
+                OnMessageReceived = context =>
+                {
+                    // 1. Đọc access_token từ query string
+                    var accessToken = context.Request.Query["access_token"];
+                    var path = context.HttpContext.Request.Path.Value?.ToLower() ?? string.Empty;
+
+                    // 2. Kiểm tra an toàn: Nếu URL có chứa chữ "hub" thì gán Token ngay
+                    if (!string.IsNullOrEmpty(accessToken) && path.Contains("hub"))
+                    {
+                        context.Token = accessToken;
+                    }
+
+                    return Task.CompletedTask;
+                }
             };
         }
     )
@@ -143,13 +237,14 @@ builder.Services.AddCors(options =>
                       policy =>
                       {
                           policy.WithOrigins(
-                                    // ✅ Chỉ cho phép Domain thật của Frontend
-                                    "https://tlu-hub-develop.vercel.app", 
-                                    
                                     // ✅ Cho phép Localhost để bạn test dưới máy (nếu cần)
                                     // Nếu không thích bạn có thể xóa dòng localhost này đi
                                     "http://localhost:3000",
-                                    "http://localhost:5173"
+                                    "http://localhost:5173",
+                                    "http://127.0.0.1:5500",
+                                    "http://localhost:5500",
+                                    "https://localhost:7087",
+                                    "https://football247-fe.vercel.app"
                                 )
                                 .AllowAnyHeader()
                                 .AllowAnyMethod()
@@ -171,7 +266,9 @@ builder.Services.Scan(scan => scan
 
 builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
 
-builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+builder.Services.AddMediatR(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddMemoryCache();
 
@@ -217,7 +314,6 @@ app.UseRouting();
 // =============================================================
 // 🔒 2. KÍCH HOẠT POLICY VỪA TẠO
 // =============================================================
-// Quan trọng: Phải đặt UseCors TRƯỚC UseAuthorization
 app.UseCors(myAllowSpecificOrigins);
 
 // Xác thực người dùng
@@ -231,5 +327,8 @@ app.MapControllers();
 
 // Map các SignalR hub endpoints
 app.MapHub<Football247Hub>("/football247hub");
+app.MapHub<ArticleCommentHub>("/hubs/article-comment");  // realtime comment theo từng bài viết
+app.MapHub<NotificationHub>("/hubs/notification");        // notification cá nhân theo userId
+app.MapHub<FootballHub>("/hubs/football");                // realtime football data theo competition
 
 app.Run();

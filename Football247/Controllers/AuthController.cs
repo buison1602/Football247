@@ -1,250 +1,94 @@
-﻿using Football247.Data;
-using Football247.Models.DTOs.Auth;
-using Football247.Models.Entities;
-using Football247.Repositories.IRepository;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using Google.Apis.Auth;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.AspNetCore.Http;
-using Football247.Services;
+﻿using Football247.Application.Command.AuthCmd;
+using Football247.Domain.Models.CommandModels.AuthCommand;
+using Football247.Domain.Models.EntityModels.DTOs.Article;
+using Football247.Domain.Models.EntityModels.DTOs.Auth;
 using Football247.Services.IService;
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using Shared.Response;
+using System.Net;
 
 namespace Football247.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     [ApiController]
     public class AuthController : ControllerBase
     {
-        private readonly IAuthService _authService;
+        private readonly IMediator _mediator;
 
-
-        public AuthController(IAuthService authService)
+        public AuthController(IMediator mediator)
         {
-            this._authService = authService;
-        }
+            _mediator = mediator;
+        }   
 
 
         [HttpPost]
         [Route("Register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequestDto registerRequestDto)
+        [ProducesResponseType(typeof(MethodResult<AuthResultDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<AuthResultDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> Register([FromBody] RegisterCommand command)
         {
-            var result = await _authService.RegisterAsync(registerRequestDto);
-
-            if (!result.Succeeded)
-            {
-                return BadRequest($"User registration failed: {string.Join(", ", result.Errors)}");
-            }
-
-            SetRefreshTokenInCookie(result.RefreshToken);
-
-            return Ok(new
-            {
-                userId = result.UserId,
-                fullName = result.FullName,
-                jwtToken = result.JwtToken
-            });
+            var queryResult = await _mediator.Send(command).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
 
         [HttpPost]
         [Route("Login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequestDto loginRequestDto)
+        [ProducesResponseType(typeof(MethodResult<AuthResultDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<AuthResultDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> Login([FromBody] LoginCommand command)
         {
-            var result = await _authService.LoginAsync(loginRequestDto);
-
-            if (result == null)
-            {
-                return Unauthorized("Invalid email or password.");
-            }
-
-            SetRefreshTokenInCookie(result.RefreshToken);
-
-            return Ok(new
-            {
-                userId = result.UserId,
-                fullName = result.FullName,
-                jwtToken = result.JwtToken
-            });
+            var queryResult = await _mediator.Send(command).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
 
         [HttpPost]
         [Route("Refresh")]
         [Authorize]
-        public async Task<IActionResult> Refresh()
+        [ProducesResponseType(typeof(MethodResult<AuthResultDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<AuthResultDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> Refresh([FromBody] RefeshTokenCommand command)
         {
-            var refreshToken = Request.Cookies["refreshToken"];
-            if (string.IsNullOrEmpty(refreshToken))
-            {
-                return BadRequest("Refresh Token not found.");
-            }
-
-            try
-            {
-                var result = await _authService.RefreshTokenAsync(refreshToken);
-                if (!result.Succeeded)
-                {
-                    return Unauthorized("Invalid refresh token.");
-                }
-
-                SetRefreshTokenInCookie(result.RefreshToken);
-
-                return Ok(new
-                {
-                    userId = result.UserId,
-                    fullName = result.FullName,
-                    jwtToken = result.JwtToken
-                });
-            }
-            catch (ArgumentNullException)
-            {
-                return BadRequest("Refresh Token is required.");
-            }
-            catch (SecurityTokenException)
-            {
-                return Unauthorized("Invalid refresh token.");
-            }
-            catch (Exception)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
-            }
+            var queryResult = await _mediator.Send(command).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
 
         [HttpPost]
         [Route("Logout")]
         [Authorize]
-        public async Task<IActionResult> Logout()
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> Logout([FromBody] LogoutCommand command)
         {
-            var refreshToken = Request.Cookies["refreshToken"];
-
-            if (string.IsNullOrEmpty(refreshToken))
-            {
-                return BadRequest("Refresh Token is required.");
-            }
-
-            var success = await _authService.LogoutAsync(refreshToken);
-
-            if (success)
-            {
-                Response.Cookies.Delete("refreshToken");
-                return Ok(new { Message = "Successfully logged out." });
-            }
-
-            return BadRequest(new { Error = "Unable to log out." });
+            var queryResult = await _mediator.Send(command).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
 
-        //[HttpPost]
-        //[Route("google-login")]
-        //[AllowAnonymous]
-        //public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto request)
-        //{
-        //    if (string.IsNullOrEmpty(request.IdToken))
-        //    {
-        //        return BadRequest("Google ID Token is required.");
-        //    }
-
-        //    try
-        //    {
-        //        // 4. Lấy Client ID từ configuration thay vì hard-code
-        //        var clientId = _configuration["Authentication:Google:ClientId"];
-
-        //        if (string.IsNullOrEmpty(clientId))
-        //        {
-        //            // Log lỗi và trả về 500 vì server cấu hình thiếu
-        //            // Log.Error("Google ClientId is not configured in appsettings.json");
-        //            return StatusCode(StatusCodes.Status500InternalServerError, "Authentication is not configured correctly.");
-        //        }
-
-        //        // 1. Xác thực IdToken với Google
-        //        var validationSettings = new GoogleJsonWebSignature.ValidationSettings()
-        //        {
-        //            Audience = new[] { clientId },
-        //        };
-
-        //        var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, validationSettings);
-
-        //        // 2. Kiểm tra xem người dùng đã tồn tại trong DB chưa
-        //        var user = await _userManager.FindByEmailAsync(payload.Email);
-
-        //        // 3. Nếu người dùng đã tồn tại -> Đăng nhập và trả về token
-        //        if (user != null)
-        //        {
-        //            // Kiểm tra xem user này đã liên kết với Google login chưa
-        //            var userLogins = await _userManager.GetLoginsAsync(user);
-        //            var googleLogin = userLogins.FirstOrDefault(l => l.LoginProvider == "Google" && l.ProviderKey == payload.Subject);
-
-        //            if (googleLogin == null)
-        //            {
-        //                // Nếu chưa, thêm thông tin đăng nhập Google vào cho user đã có
-        //                await _userManager.AddLoginAsync(user, new UserLoginInfo("Google", payload.Subject, "Google"));
-        //            }
-
-        //            // Tạo token của hệ thống và trả về
-        //            var tokens = await _unitOfWork.TokenRepository.CreateTokensAsync(user);
-        //            return Ok(tokens);
-        //        }
-
-        //        // 4. Nếu người dùng chưa tồn tại -> Tạo người dùng mới
-        //        var newUser = new ApplicationUser
-        //        {
-        //            Email = payload.Email,
-        //            UserName = payload.Email, // Hoặc payload.Name
-        //            EmailConfirmed = payload.EmailVerified // Dùng trạng thái xác thực từ Google
-        //        };
-
-        //        var identityResult = await _userManager.CreateAsync(newUser);
-
-        //        if (identityResult.Succeeded)
-        //        {
-        //            // Gán role mặc định cho người dùng đăng nhập bằng Google
-        //            // Lưu ý: Không nên gán "Admin" làm mặc định
-        //            await _userManager.AddToRoleAsync(newUser, "User");
-
-        //            // Liên kết tài khoản mới với nhà cung cấp Google
-        //            await _userManager.AddLoginAsync(newUser, new UserLoginInfo("Google", payload.Subject, "Google"));
-
-        //            // Tạo token của hệ thống và trả về
-        //            var tokens = await _unitOfWork.TokenRepository.CreateTokensAsync(newUser);
-        //            return Ok(tokens);
-        //        }
-
-        //        // Nếu tạo user thất bại
-        //        var errorMessages = identityResult.Errors.Select(e => e.Description);
-        //        return BadRequest($"User creation failed: {string.Join(", ", errorMessages)}");
-        //    }
-        //    catch (InvalidJwtException ex)
-        //    {
-        //        return BadRequest($"Invalid Google Token: {ex.Message}");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
-        //    }
-        //}
-
-
-
-        private void SetRefreshTokenInCookie(string refreshToken)
+        [HttpPost]
+        [Route("ForgotPassword")]
+        [ProducesResponseType(typeof(MethodResult<string>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<string>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordCommand command)
         {
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Expires = DateTime.UtcNow.AddDays(7),
-                Secure = false, // Chỉ true nếu dùng HTTPS
-                SameSite = SameSiteMode.Lax
-            };
-            Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
+            var queryResult = await _mediator.Send(command).ConfigureAwait(false);
+            return queryResult.GetActionResult();
+        }
+
+
+        [HttpPut]
+        [Route("ChangePassword")]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordCommand command)
+        {
+            var queryResult = await _mediator.Send(command).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
     }
 }

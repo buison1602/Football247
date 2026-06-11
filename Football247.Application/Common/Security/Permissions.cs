@@ -1,0 +1,68 @@
+namespace Football247.Authorization
+{
+    public static class Permissions
+    {
+        public static class Articles
+        {
+            public const string View = "Permissions.Articles.View";
+            public const string Create = "Permissions.Articles.Create";
+            public const string Edit = "Permissions.Articles.Edit";
+            public const string Delete = "Permissions.Articles.Delete";
+            public const string Approve = "Permissions.Articles.Approve";
+            public const string DeleteAny = "Permissions.Articles.DeleteAny";
+        }
+
+        public static class Users
+        {
+            public const string View = "Permissions.Users.View";
+            public const string Create = "Permissions.Users.Create";
+            public const string Edit = "Permissions.Users.Edit";
+            public const string Delete = "Permissions.Users.Delete";
+        }
+
+        public static class Comments
+        {
+            public const string View = "Permissions.Comments.View";
+            public const string Create = "Permissions.Comments.Create";
+            public const string Delete = "Permissions.Comments.Delete";
+        }
+
+        public static class Categories
+        {
+            public const string View = "Permissions.Categories.View";
+            public const string Create = "Permissions.Categories.Create";
+            public const string Edit = "Permissions.Categories.Edit";
+            public const string Delete = "Permissions.Categories.Delete";
+        }
+
+        public static class Tags
+        {
+            public const string View = "Permissions.Tags.View";
+            public const string Create = "Permissions.Tags.Create";
+            public const string Edit = "Permissions.Tags.Edit";
+            public const string Delete = "Permissions.Tags.Delete";
+        }
+
+        public static List<string> GetAllPermissions()
+        {
+            var allPermissions = new List<string>();
+            var modules = typeof(Permissions).GetNestedTypes();
+
+            foreach (var module in modules)
+            {
+                var fields = module.GetFields(System.Reflection.BindingFlags.Public |
+                                              System.Reflection.BindingFlags.Static |
+                                              System.Reflection.BindingFlags.FlattenHierarchy);
+
+                foreach (var field in fields)
+                {
+                    var propValue = field.GetValue(null);
+                    if (propValue is string permissionString)
+                        allPermissions.Add(permissionString);
+                }
+            }
+
+            return allPermissions;
+        }
+    }
+}

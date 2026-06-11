@@ -1,49 +1,33 @@
-﻿using Football247.Authorization;
+﻿using Football247.Application.Command.WorkFlowCmd;
+using Football247.Authorization;
 using Football247.Services.IService;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
+using Shared.Response;
+using System.Net;
 
 namespace Football247.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     [ApiController]
     public class WorkFlowController : ControllerBase
     {
-        private readonly ILogger<WorkFlowController> _logger;
+        private readonly IMediator _mediator;
 
-        private readonly IWorkFlowService _workFlowService;
-
-        public WorkFlowController(ILogger<WorkFlowController> logger, IWorkFlowService workFlowService)
+        public WorkFlowController(IMediator mediator)
         {
-            _logger = logger;
-            _workFlowService = workFlowService;
+            _mediator = mediator;
         }
 
-        [HttpPut]
-        [Authorize(Policy = Permissions.Articles.Approve)]
-        public async Task<IActionResult> ApproveArticle(Guid articleId)
+        [HttpPost("approve")]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> ReviewArticle([FromBody] ReviewRequestArticleCommand command)
         {
-            _logger.LogInformation($"Approving article with ID: {articleId}");
-
-            try 
-            {
-                var articleDto = await _workFlowService.ApproveArticleAsync(articleId);
-                if (articleDto == null)
-                {
-                    _logger.LogWarning($"Article with ID: {articleId} not found for approval.");
-                    return NotFound($"Article with ID: {articleId} not found.");
-                }
-
-                return Ok($"Article {articleId} has been approved.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error approving article with ID: {articleId}");
-                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while approving the article.");
-            }
-
+            var commandResult = await _mediator.Send(command);
+            return commandResult.GetActionResult();
         }
     }
 }

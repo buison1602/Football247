@@ -1,116 +1,86 @@
-﻿using Football247.Data; // Để dùng Roles.Admin
-using Football247.Models.DTOs.Role;
+﻿using Football247.Application.Command.RoleCmd;
+using Football247.Application.Query.Role;
+using Football247.Domain.Models.EntityModels.DTOs.Article;
+using Football247.Domain.Models.EntityModels.DTOs.Role;
 using Football247.Services.IService;
-using Microsoft.AspNetCore.Authorization;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Shared.Common.Models.Paging;
+using Shared.Response;
+using System.Net;
 
 namespace Football247.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     [ApiController]
-    [Authorize(Roles = Roles.Admin)] 
+    //[Authorize(Roles = Roles.Admin)] 
     public class RolesController : ControllerBase
     {
-        private readonly IRoleService _roleService;
-        private readonly ILogger<RolesController> _logger;
+        private readonly IMediator _mediator;
 
-        public RolesController(IRoleService roleService, ILogger<RolesController> logger)
+        public RolesController(IMediator mediator)
         {
-            _roleService = roleService;
-            _logger = logger;
+            _mediator = mediator;
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
+
+        [HttpGet("get-all")]
+        [ProducesResponseType(typeof(MethodResult<PagingItemsModel<RoleDto>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<RoleDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetAll([FromQuery] GetAllRolesWithPermissionsQuery request)
         {
-            var roles = await _roleService.GetAllRolesWithPermissionsAsync();
-            return Ok(roles);
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(string id)
+
+        [HttpGet("get-by-id")]
+        [ProducesResponseType(typeof(MethodResult<PagingItemsModel<RoleDto>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<RoleDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetById([FromQuery] GetRoleByIdQuery request)
         {
-            var role = await _roleService.GetRoleByIdAsync(id);
-            if (role == null)
-            {
-                return NotFound($"Không tìm thấy Role với ID: {id}");
-            }
-            return Ok(role);
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
+
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateOrUpdateRoleDto dto)
+        [ProducesResponseType(typeof(MethodResult<PagingItemsModel<RoleDto>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<RoleDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> Create([FromQuery] CreateRoleCommand request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
-            try
-            {
-                var result = await _roleService.CreateRoleAsync(dto);
-                if (!result)
-                {
-                    return BadRequest($"Role với tên {dto.Name} đã tồn tại");
-                }
-
-                return Ok("Thêm mới Role thành công.");
-            }
-            catch (ArgumentException ex) 
-            {
-                return BadRequest(ex.Message); 
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error creating role");
-                return StatusCode(500, "Internal server error.");
-            }
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] CreateOrUpdateRoleDto dto)
+
+        [HttpPut("update")]
+        [ProducesResponseType(typeof(MethodResult<PagingItemsModel<RoleDto>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<RoleDto>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> Update([FromQuery] UpdateRoleCommand request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
-            try
-            {
-                var result = await _roleService.UpdateRoleAsync(id, dto);
-                if (!result)
-                {
-                    return NotFound($"Không tìm thấy role với ID {id} hoặc lỗi cập nhật");
-                }
-
-                return Ok("Cập nhật Role thành công");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error updating role {id}");
-                return StatusCode(500, "Internal server error.");
-            }
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(string id)
-        {
-            try
-            {
-                var result = await _roleService.DeleteRoleAsync(id);
-                if (!result)
-                {
-                    return BadRequest("Xóa Role thất bại");
-                }
 
-                return Ok("Xóa Role thành công");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error deleting role {id}");
-                return StatusCode(500, "Internal server error.");
-            }
+        [HttpDelete("delete")]
+        [ProducesResponseType(typeof(MethodResult<PagingItemsModel<bool>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> Delete([FromQuery] DeleteRoleCommand request)
+        {
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
+               
 
         [HttpGet("permissions-source")]
-        public IActionResult GetAllSystemPermissions()
+        [ProducesResponseType(typeof(MethodResult<PagingItemsModel<bool>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<bool>), (int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetAllSystemPermissions([FromQuery] GetAllSystemPermissionsQuery request)
         {
-            var permissions = _roleService.GetAllSystemPermissions();
-            return Ok(permissions);
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
         }
     }
 }
