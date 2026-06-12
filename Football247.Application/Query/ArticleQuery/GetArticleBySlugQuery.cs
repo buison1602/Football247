@@ -44,7 +44,12 @@ namespace Football247.Application.Query.ArticleQuery
                 methodResult.AddError(StatusCodes.Status404NotFound, nameof(EnumSystemErrorCode.DataNotExist), nameof(request.Slug), request.Slug);
                 return methodResult;
             }
-            methodResult.Result = _mapper.Map<ArticleDto>(article);
+
+            var updateArticle = await _unitOfWork.ArticleRepository.GetByIdAsync(article.Id);
+            updateArticle.ViewCount += 1;
+            await _unitOfWork.ArticleRepository.UpdateAsync(article.Id, updateArticle);
+
+            methodResult.Result = _mapper.Map<ArticleDto>(updateArticle);
             methodResult.StatusCode = StatusCodes.Status200OK;
             return methodResult;
         }

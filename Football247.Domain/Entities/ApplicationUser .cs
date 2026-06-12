@@ -9,5 +9,6 @@ namespace Football247.Models.Entities
         public int SpinCount { get; set; }
         public bool ReceiveInAppNotifications { get; set; } = true;
         public bool ReceiveEmailNotifications { get; set; } = true;
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     }
 }

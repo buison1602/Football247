@@ -5,6 +5,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Shared.Common.Models.Paging;
 using Shared.Response;
 using System.Net;
 using System.Security.Claims;
@@ -52,14 +53,14 @@ namespace Football247.Api.Controllers.Store
         public async Task<IActionResult> GetOrderDetail(Guid id)
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var result = await _mediator.Send(new GetOrderDetailQuery { OrderId = id, UserId = userId });
+            var result = await _mediator.Send(new GetOrderDetailQuery { OrderId = id });
             return result.GetActionResult();
         }
 
         // GET /api/orders/admin?page=1&pageSize=20&statusFilter=Pending
         [HttpGet("admin")]
         //[Authorize(Policy = Permissions.Order.Read)]
-        [ProducesResponseType(typeof(MethodResult<List<OrderSummaryDto>>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<PagingItemsModel<OrderSummaryDto>>), (int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetOrdersAdmin([FromQuery] GetOrdersAdminQuery query)
         {
             var result = await _mediator.Send(query);

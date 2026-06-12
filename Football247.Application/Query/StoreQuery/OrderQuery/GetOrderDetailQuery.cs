@@ -15,7 +15,7 @@ namespace Football247.Application.Query.StoreQuery.OrderQuery
 {
     public class GetOrderDetailQuery : IRequest<MethodResult<OrderDetailDto>>
     {
-        public Guid UserId { get; set; }
+        //public Guid UserId { get; set; }
         public Guid OrderId { get; set; }
     }
 
@@ -33,7 +33,7 @@ namespace Football247.Application.Query.StoreQuery.OrderQuery
             var methodResult = new MethodResult<OrderDetailDto>();
             var order = await _unitOfWork.OrderRepository.ReadQueryable
                 .Include(o => o.OrderItems)
-                .FirstOrDefaultAsync(o => o.Id == request.OrderId && o.UserId == request.UserId, cancellationToken);
+                .FirstOrDefaultAsync(o => o.Id == request.OrderId , cancellationToken); // && o.UserId == request.UserId
 
             if (order == null)
             {
