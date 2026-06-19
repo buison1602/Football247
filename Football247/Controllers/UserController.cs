@@ -86,5 +86,22 @@ namespace Football247.Controllers
             var queryResult = await _mediator.Send(request).ConfigureAwait(false);
             return queryResult.GetActionResult();
         }
+
+        /// <summary>
+        /// Admin endpoint để cập nhật thông tin user chi tiết
+        /// Bao gồm: vai trò, quyền hạn, security settings, points, spins, etc.
+        /// </summary>
+        [HttpPut("admin/{id}")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.NotFound)]
+        [ProducesResponseType(typeof(MethodResult<UserDto>), (int)HttpStatusCode.Unauthorized)]
+        public async Task<IActionResult> UpdateUserAsAdmin([FromRoute] Guid id, [FromBody] UpdateUserAdminCommand request)
+        {
+            request.Id = id;
+            var queryResult = await _mediator.Send(request).ConfigureAwait(false);
+            return queryResult.GetActionResult();
+        }
     }
 }

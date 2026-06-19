@@ -44,7 +44,7 @@ namespace Football247.Application.Query.ArticleQuery
             }
 
             var query = _unitOfWork.ArticleRepository.ReadQueryable
-                .Where(a => a.Category.Slug == request.CategorySlug && a.IsApproved)
+                .Where(a => a.CategoryId == category.Id && a.IsApproved == false)
                 .OrderByDescending(a => a.CreatedDate);
 
             var totalItems = await query.CountAsync(cancellationToken);

@@ -44,7 +44,7 @@ namespace Football247.Application.Query.ArticleQuery
             }
 
             var query = _unitOfWork.ArticleRepository.ReadQueryable
-                .Where(a => a.Team.Slug == request.TeamSlug && a.IsApproved)
+                .Where(a => a.TeamId == team.Id && a.IsApproved == false)
                 .Include(a => a.Team)
                 .OrderByDescending(a => a.CreatedDate);
 
