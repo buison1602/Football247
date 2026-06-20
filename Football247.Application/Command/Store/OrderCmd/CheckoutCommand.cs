@@ -123,11 +123,11 @@ namespace Football247.Application.Command.Store.OrderCmd
 
                 await _unitOfWork.OrderRepository.CreateAsync(order);
 
-                // 5. Trừ tồn kho
-                foreach (var item in cart.CartItems)
-                {
-                    item.Product!.Stock -= item.Quantity;
-                }
+                // 5. Trừ tồn kho - chỉ trừ tồn kho khi thanh toán thành công 
+                //foreach (var item in cart.CartItems)
+                //{
+                //    item.Product!.Stock -= item.Quantity;
+                //}
 
                 await _unitOfWork.SaveAsync();
                 await _unitOfWork.CommitTransactionAsync();
