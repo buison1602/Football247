@@ -55,8 +55,6 @@ namespace Football247.Infrastructure.Maps
                     dest => dest.AwayTeamCrest,
                     opt => opt.MapFrom(src => src.AwayTeam.Crest))
                 // Các property computed trong DTO không cần map ngược
-                .ForSourceMember(src => src.MatchDateLabel, opt => opt.DoNotValidate())
-                .ForSourceMember(src => src.MatchTimeLabel, opt => opt.DoNotValidate())
                 .ForSourceMember(src => src.IsFinished, opt => opt.DoNotValidate());
         }
     }

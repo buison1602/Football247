@@ -1,132 +1,86 @@
-﻿
-using Football247.Domain.Entities;
-using Football247.Repositories.IRepository;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Shared.Enum;
 
 namespace Football247.Application.Service.FootballBackground
 {
     public class FootballDataBackgroundService : BackgroundService
     {
-        private static readonly TimeSpan LiveInterval = TimeSpan.FromMinutes(4);
-        private static readonly TimeSpan PreMatchInterval = TimeSpan.FromMinutes(30);
+        // Cứ 1 phút gọi 1 lần → 2 competitions = 2 requests/phút, an toàn
+        private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
 
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IConfiguration _config;
         private readonly ILogger<FootballDataBackgroundService> _logger;
 
         public FootballDataBackgroundService(
             IServiceScopeFactory scopeFactory,
+            IConfiguration config,
             ILogger<FootballDataBackgroundService> logger)
         {
             _scopeFactory = scopeFactory;
+            _config = config;
             _logger = logger;
         }
 
         protected override async Task ExecuteAsync(CancellationToken ct)
         {
-            _logger.LogInformation("FootballDataBackgroundService started.");
+            _logger.LogInformation("\n\n\nFootballDataBackgroundService started+++++++++++++++++++++++++++++++++++++++++++++++++++++++++.\n\n\n\n");
 
-            // B1: Sync toàn bộ mùa giải 1 lần khi khởi động
-            await RunScopedAsync(job => job.SyncFullSeasonAsync(ct), ct);
+            // Đọc danh sách competitions từ config: ["WC", "PL"]
+            var competitions = _config
+                .GetSection("FootballData:Competitions")
+                .Get<string[]>() ?? new[] { "WC" };
 
-            // Vòng lặp daily
+            // Chờ app khởi động xong rồi mới bắt đầu
+            await Task.Delay(TimeSpan.FromSeconds(5), ct);
+
             while (!ct.IsCancellationRequested)
             {
-                var todayMatches = await GetTodayMatchesFromDbAsync(ct);
+                _logger.LogInformation("[FootballBG] Bắt đầu poll cycle...");
 
-                if (todayMatches.Count == 0)
+                foreach (var competition in competitions)
                 {
-                    // Không có trận hôm nay → ngủ đến 00:05 UTC ngày mai
-                    var sleep = GetSleepUntilTomorrow();
-                    _logger.LogInformation("No PL matches today. Sleeping {Hours:F1}h until tomorrow.", sleep.TotalHours);
-                    await Task.Delay(sleep, ct);
-                    continue;
+                    if (ct.IsCancellationRequested) break;
+
+                    await RunAsync(competition, ct);
+
+                    // Delay 3 giây giữa mỗi competition
+                    // → tránh gửi 2 request cùng lúc, an toàn với rate limit
+                    if (competition != competitions.Last())
+                        await Task.Delay(TimeSpan.FromSeconds(3), ct);
                 }
 
-                _logger.LogInformation("Today has {Count} PL matches. Starting watch loop.", todayMatches.Count);
+                _logger.LogInformation(
+                    "[FootballBG] Poll cycle xong. Chờ {Min} phút...",
+                    PollInterval.TotalMinutes);
 
-                // B3: Watch loop cho ngày hôm nay
-                await WatchTodayAsync(ct);
-
-                // Xong hết trận hôm nay → đợi đến ngày mai
-                var sleepAfter = GetSleepUntilTomorrow();
-                _logger.LogInformation("All matches done. Sleeping {Hours:F1}h until tomorrow.", sleepAfter.TotalHours);
-                await Task.Delay(sleepAfter, ct);
+                await Task.Delay(PollInterval, ct);
             }
+
+            _logger.LogInformation("FootballDataBackgroundService stopped.");
         }
 
-        private async Task WatchTodayAsync(CancellationToken ct)
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                SyncTodayResult? result = null;
-
-                await RunScopedAsync(async job =>
-                {
-                    result = await job.SyncTodayMatchesAsync(ct);
-
-                    // B4: Có match vừa FINISHED → sync standings ngay
-                    if (result.AnyJustFinished)
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(5), ct); // đợi 5s cho API cập nhật
-                        await job.SyncStandingsAsync(ct);
-                    }
-                }, ct);
-
-                // Tất cả trận kết thúc → thoát watch loop
-                if (result?.AllFinished == true)
-                {
-                    _logger.LogInformation("All today's matches finished. Exiting watch loop.");
-                    break;
-                }
-
-                // Chọn interval tiếp theo
-                var interval = result?.HasLiveMatch == true ? LiveInterval : PreMatchInterval;
-                _logger.LogInformation("Next sync in {Minutes} min (HasLive={HasLive})",
-                    interval.TotalMinutes, result?.HasLiveMatch);
-
-                await Task.Delay(interval, ct);
-            }
-        }
-
-        private async Task<List<Match>> GetTodayMatchesFromDbAsync(CancellationToken ct)
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-
-            return uow.MatchRepository.ReadQueryable
-                .Where(m =>
-                    m.CompetitionCode == "PL"
-                    && DateOnly.FromDateTime(m.UtcDate) == today
-                    && m.Status != EnumMatchStatus.Postponed
-                    && m.Status != EnumMatchStatus.Cancelled)
-                .ToList();
-        }
-
-        // Helper tạo scope và chạy job
-        private async Task RunScopedAsync(Func<FootballSyncJob, Task> action, CancellationToken ct)
+        private async Task RunAsync(string competition, CancellationToken ct)
         {
             using var scope = _scopeFactory.CreateScope();
             var job = scope.ServiceProvider.GetRequiredService<FootballSyncJob>();
+
             try
             {
-                await action(job);
+                // Gọi song song 2 API: matches + standings
+                // Mỗi cái 1 request → tổng 2 requests / competition
+                await Task.WhenAll(
+                    job.SyncMatchesAsync(competition, ct),
+                    job.SyncStandingsAsync(competition, ct)
+                );
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unhandled error in sync job.");
+                _logger.LogError(ex, "[FootballBG] Lỗi khi sync {C}", competition);
             }
-        }
-
-        private static TimeSpan GetSleepUntilTomorrow()
-        {
-            var now = DateTime.UtcNow;
-            var tomorrow = now.Date.AddDays(1).AddMinutes(5); // 00:05 UTC ngày mai
-            return tomorrow - now;
         }
     }
 }

@@ -104,16 +104,18 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 builder.Services.AddHttpClient<FootballDataClient>(client =>
 {
-    client.BaseAddress = new Uri("https://api.football-data.org");
-    client.DefaultRequestHeaders.Add("X-Auth-Token",
+    client.BaseAddress = new Uri(
+        builder.Configuration["FootballData:BaseUrl"]
+        ?? "https://api.football-data.org/v4/");
+
+    client.DefaultRequestHeaders.Add(
+        "X-Auth-Token",
         builder.Configuration["FootballData:ApiToken"]);
+
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-// 2. Job (Scoped — tạo mới mỗi cycle)
 builder.Services.AddScoped<FootballSyncJob>();
-
-// 3. Background Service
 builder.Services.AddHostedService<FootballDataBackgroundService>();
 
 

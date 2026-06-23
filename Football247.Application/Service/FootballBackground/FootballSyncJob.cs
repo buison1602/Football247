@@ -1,284 +1,289 @@
-﻿
-
-using Football247.Application.SignalR;
-using Football247.Domain.Entities;
-using Football247.Repositories.IRepository;
+﻿using Football247.Application.SignalR;
+using Football247.Domain.Models.EntityModels.DTOs.Match;
+using Football247.Domain.Models.EntityModels.DTOs.Standing;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Shared.Enum;
 using System.Text.Json;
 
 namespace Football247.Application.Service.FootballBackground
 {
     public class FootballSyncJob
     {
-        private const string Competition = "PL";
-
         private readonly FootballDataClient _client;
-        private readonly IUnitOfWork _unitOfWork;
         private readonly IHubContext<FootballHub> _hub;
         private readonly ILogger<FootballSyncJob> _logger;
 
+        // Map stage code → label tiếng Việt
+        private static readonly Dictionary<string, string> StageLabels = new()
+        {
+            ["GROUP_STAGE"] = "Vòng bảng",
+            ["LAST_32"] = "Vòng 1/16",
+            ["LAST_16"] = "Vòng 1/8",
+            ["QUARTER_FINALS"] = "Tứ kết",
+            ["SEMI_FINALS"] = "Bán kết",
+            ["THIRD_PLACE"] = "Tranh hạng ba",
+            ["FINAL"] = "Chung kết",
+        };
+
+        // Thứ tự hiển thị stage
+        private static readonly List<string> StageOrder = new()
+        {
+            "GROUP_STAGE", "LAST_32", "LAST_16",
+            "QUARTER_FINALS", "SEMI_FINALS", "THIRD_PLACE", "FINAL"
+        };
+
         public FootballSyncJob(
             FootballDataClient client,
-            IUnitOfWork unitOfWork,
             IHubContext<FootballHub> hub,
             ILogger<FootballSyncJob> logger)
         {
             _client = client;
-            _unitOfWork = unitOfWork;
             _hub = hub;
             _logger = logger;
         }
 
-        // ── B1: Sync toàn bộ mùa giải (gọi 1 lần khi app start) ──────────────
-        public async Task SyncFullSeasonAsync(CancellationToken ct)
+        // ── Sync matches: fetch → group → push hub ────────────────────────────
+        public async Task SyncMatchesAsync(string competition, CancellationToken ct)
         {
             try
             {
-                _logger.LogInformation("[PL] Syncing full season...");
-                var json = await _client.GetFullSeasonAsync(Competition, ct);
-                var matches = ParseMatches(json);
+                _logger.LogInformation("\n\n\n SyncMatchesAsync started+++++++++++++++++++++++++++++++++++++++++++++++++++++++++.\n\n\n\n");
 
-                foreach (var match in matches)
-                {
-                    var existing = await _unitOfWork.MatchRepository.ReadQueryable
-                        .FirstOrDefaultAsync(m => m.ExternalId == match.ExternalId);
+                _logger.LogInformation("[{C}] Fetching matches...", competition);
+                var json = await _client.GetAllMatchesAsync(competition, ct);
+                var payload = ParseMatches(json, competition);
 
-                    if (existing == null)
-                        await _unitOfWork.MatchRepository.CreateAsync(match);
-                    else
-                        await _unitOfWork.MatchRepository.UpdateAsync(existing.Id, match);
-                }
-
-                await _unitOfWork.SaveAsync();
-                _logger.LogInformation("[PL] Full season synced. Total: {Count} matches", matches.Count);
-
-                // sync standings ngay sau khi xong matches
-                await SyncStandingsAsync(ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex, "[PL] Failed to sync full season.");
-            }
-        }
-
-        // ── B3: Sync trận hôm nay (gọi theo interval khi có trận) ────────────
-        // Trả về true nếu có match vừa FINISHED (để trigger sync standings)
-        public async Task<SyncTodayResult> SyncTodayMatchesAsync(CancellationToken ct)
-        {
-            var result = new SyncTodayResult();
-            try
-            {
-                var today = DateOnly.FromDateTime(DateTime.UtcNow);
-                _logger.LogInformation("[PL] Syncing today's matches ({Date})...", today);
-
-                var json = await _client.GetMatchesByDateAsync(Competition, today, ct);
-                var apiMatches = ParseMatches(json);
-
-                result.HasLiveMatch = apiMatches.Any(m =>
-                    m.Status is EnumMatchStatus.InPlay or EnumMatchStatus.Paused);
-
-                var changedMatches = new List<Match>();
-
-                foreach (var apiMatch in apiMatches)
-                {
-                    var existing = await _unitOfWork.MatchRepository.ReadQueryable
-                       .FirstOrDefaultAsync(m => m.ExternalId == apiMatch.ExternalId);
-
-                    if (existing == null)
-                    {
-                        await _unitOfWork.MatchRepository.CreateAsync(apiMatch);
-                        changedMatches.Add(apiMatch);
-                        continue;
-                    }
-
-                    // Chỉ update nếu có thay đổi thật sự
-                    bool statusChanged = existing.Status != apiMatch.Status;
-                    bool scoreChanged = existing.HomeScore != apiMatch.HomeScore
-                                     || existing.AwayScore != apiMatch.AwayScore;
-
-                    if (statusChanged || scoreChanged)
-                    {
-                        // Phát hiện match vừa FINISHED → cần sync standings
-                        if (apiMatch.Status == EnumMatchStatus.Finished
-                            && existing.Status != EnumMatchStatus.Finished)
-                        {
-                            result.AnyJustFinished = true;
-                            _logger.LogInformation("[PL] Match {Id} just finished. Will sync standings.", apiMatch.ExternalId);
-                        }
-
-                        await _unitOfWork.MatchRepository.UpdateAsync(existing.Id, apiMatch);
-                        changedMatches.Add(apiMatch);
-                    }
-                }
-
-                if (changedMatches.Count > 0)
-                {
-                    await _unitOfWork.SaveAsync();
-
-                    // Bắn Hub cho user đang online
-                    await _hub.Clients
-                        .Group("PL-matches")
-                        .SendAsync("MatchesUpdated", changedMatches, ct);
-
-                    _logger.LogInformation("[PL] {Count} matches updated and pushed to Hub.", changedMatches.Count);
-                }
-
-                result.AllFinished = apiMatches.All(m =>
-                    m.Status is EnumMatchStatus.Finished
-                             or EnumMatchStatus.Postponed
-                             or EnumMatchStatus.Cancelled);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex, "[PL] Failed to sync today's matches.");
-            }
-
-            return result;
-        }
-
-        // ── B4: Sync standings (chỉ gọi khi có match vừa FINISHED) ───────────
-        public async Task SyncStandingsAsync(CancellationToken ct)
-        {
-            try
-            {
-                _logger.LogInformation("[PL] Syncing standings after match finished...");
-                var json = await _client.GetStandingsAsync(Competition, ct);
-                var standings = ParseStandings(json);
-
-                foreach (var standing in standings)
-                {
-                    var existing = await _unitOfWork.StandingRepository.ReadQueryable
-                        .FirstOrDefaultAsync(s => s.CompetitionCode == Competition
-                                   && s.Season == standing.Season
-                                   && s.TeamExternalId == standing.TeamExternalId);
-
-                    if (existing == null)
-                        await _unitOfWork.StandingRepository.CreateAsync(standing);
-                    else
-                        await _unitOfWork.StandingRepository.UpdateAsync(existing.Id, standing);
-                }
-
-                await _unitOfWork.SaveAsync();
-
-                // Bắn Hub standings
                 await _hub.Clients
-                    .Group("PL-standings")
-                    .SendAsync("StandingsUpdated", standings, ct);
+                    .Group($"{competition}-matches")
+                    .SendAsync("MatchesUpdated", payload, ct);
 
-                _logger.LogInformation("[PL] Standings synced and pushed to Hub.");
+                _logger.LogInformation(
+                    "[{C}] Pushed {Stages} stages. HasLive={Live}",
+                    competition, payload.Stages.Count, payload.HasLiveMatch);
+            }
+            catch (RateLimitException ex)
+            {
+                _logger.LogWarning("[{C}] Rate limit. Retry after {S}s", competition, ex.RetryAfter.TotalSeconds);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogError(ex, "[PL] Failed to sync standings.");
+                _logger.LogError(ex, "[{C}] Failed to sync matches.", competition);
             }
         }
 
-        // ── Parse helpers ──────────────────────────────────────────────────────
-        private static List<Match> ParseMatches(string json)
+        // ── Sync standings: fetch → flatten 48 đội → sort → push hub ─────────
+        public async Task SyncStandingsAsync(string competition, CancellationToken ct)
+        {
+            try
+            {
+                _logger.LogInformation("\n\n\n SyncStandingsAsync started+++++++++++++++++++++++++++++++++++++++++++++++++++++++++.\n\n\n\n");
+
+                _logger.LogInformation("[{C}] Fetching standings...", competition);
+                var json = await _client.GetStandingsAsync(competition, ct);
+                var payload = ParseStandings(json, competition);
+
+                await _hub.Clients
+                    .Group($"{competition}-standings")
+                    .SendAsync("StandingsUpdated", payload, ct);
+
+                _logger.LogInformation(
+                    "[{C}] Pushed {Count} teams (standings).",
+                    competition, payload.Standings.Count);
+            }
+            catch (RateLimitException ex)
+            {
+                _logger.LogWarning("[{C}] Rate limit. Retry after {S}s", competition, ex.RetryAfter.TotalSeconds);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "[{C}] Failed to sync standings.", competition);
+            }
+        }
+
+        // ── Parse matches → WcSchedulePayload ────────────────────────────────
+        private static WcSchedulePayload ParseMatches(string json, string competition)
         {
             using var doc = JsonDocument.Parse(json);
-            var matches = new List<Match>();
+            var payload = new WcSchedulePayload
+            {
+                CompetitionCode = competition,
+                UpdatedAt = DateTime.UtcNow,
+            };
 
-            if (!doc.RootElement.TryGetProperty("matches", out var arr)) return matches;
+            if (!doc.RootElement.TryGetProperty("matches", out var arr))
+                return payload;
 
+            // Parse tất cả matches
+            var allMatches = new List<MatchFixtureDto>();
             foreach (var m in arr.EnumerateArray())
             {
-                matches.Add(new Match
+                var status = m.GetProperty("status").GetString() ?? "";
+                var stage = m.GetProperty("stage").GetString() ?? "";
+                var group = m.TryGetProperty("group", out var g) ? g.GetString() : null;
+
+                // Dòng này trong vòng foreach của ParseMatches
+                var match = new MatchFixtureDto
                 {
-                    ExternalId = m.GetProperty("id").GetInt32(),
+                    ExternalId = m.GetProperty("id").GetInt32(), // dòng này ok vì id trận luôn có
                     UtcDate = m.GetProperty("utcDate").GetDateTime(),
-                    Status = ParseStatus(m.GetProperty("status").GetString()!),
-                    Matchday = m.TryGetProperty("matchday", out var md) ? md.GetInt32() : 0,
-                    HomeTeamExternalId = m.GetProperty("homeTeam").GetProperty("id").GetInt32(),
-                    HomeTeamName = m.GetProperty("homeTeam").GetProperty("name").GetString()!,
-                    HomeTeamShortName = m.GetProperty("homeTeam").GetProperty("shortName").GetString()!,
-                    HomeTeamCrest = m.GetProperty("homeTeam").GetProperty("crest").GetString()!,
-                    AwayTeamExternalId = m.GetProperty("awayTeam").GetProperty("id").GetInt32(),
-                    AwayTeamName = m.GetProperty("awayTeam").GetProperty("name").GetString()!,
-                    AwayTeamShortName = m.GetProperty("awayTeam").GetProperty("shortName").GetString()!,
-                    AwayTeamCrest = m.GetProperty("awayTeam").GetProperty("crest").GetString()!,
+                    Status = m.GetProperty("status").GetString() ?? "",
+                    Matchday = m.TryGetProperty("matchday", out var md)
+                                && md.ValueKind != JsonValueKind.Null ? md.GetInt32() : 0,
+                    Stage = m.TryGetProperty("stage", out var st)
+                                && st.ValueKind != JsonValueKind.Null ? st.GetString() ?? "" : "",
+                    Group = m.TryGetProperty("group", out var h)
+                                && h.ValueKind != JsonValueKind.Null ? h.GetString() : null,
+                    HomeTeam = ParseTeam(m.GetProperty("homeTeam")),  // ParseTeam đã fix null ở trên
+                    AwayTeam = ParseTeam(m.GetProperty("awayTeam")),
                     HomeScore = TryGetScore(m, "home"),
                     AwayScore = TryGetScore(m, "away"),
-                    CompetitionCode = "PL",
-                    CompetitionName = "Premier League",
-                    Season = m.GetProperty("season").GetProperty("startDate").GetDateTime().Year,
-                });
+                    Winner = m.TryGetProperty("score", out var sc)
+                                && sc.TryGetProperty("winner", out var w)
+                                && w.ValueKind != JsonValueKind.Null
+                                ? w.GetString() : null,
+                };
+
+                allMatches.Add(match);
+
+                if (match.IsLive)
+                    payload.HasLiveMatch = true;
             }
 
-            return matches;
+            // Group theo Stage → Group, theo đúng thứ tự
+            var byStage = allMatches
+                .GroupBy(m => m.Stage)
+                .OrderBy(g => StageOrder.IndexOf(g.Key) is var i && i >= 0 ? i : 99);
+
+            foreach (var stageGroup in byStage)
+            {
+                var stageDto = new StageDto
+                {
+                    Stage = stageGroup.Key,
+                    Label = StageLabels.GetValueOrDefault(stageGroup.Key, stageGroup.Key),
+                };
+
+                if (stageGroup.Key == "GROUP_STAGE")
+                {
+                    // Vòng bảng: chia theo group (GROUP_A ... GROUP_L)
+                    var byGroup = stageGroup
+                        .GroupBy(m => m.Group ?? "")
+                        .OrderBy(g => g.Key); // A → L
+
+                    foreach (var groupMatches in byGroup)
+                    {
+                        stageDto.Groups.Add(new GroupDto
+                        {
+                            GroupName = groupMatches.Key,
+                            Matches = groupMatches
+                                .OrderBy(m => m.UtcDate)
+                                .ToList(),
+                        });
+                    }
+                }
+                else
+                {
+                    // Knockout: 1 group duy nhất, không tên group
+                    stageDto.Groups.Add(new GroupDto
+                    {
+                        GroupName = "",
+                        Matches = stageGroup
+                            .OrderBy(m => m.UtcDate)
+                            .ToList(),
+                    });
+                }
+
+                payload.Stages.Add(stageDto);
+            }
+
+            return payload;
         }
 
-        private static List<Standing> ParseStandings(string json)
+        // ── Parse standings → flatten 48 đội, sort ───────────────────────────
+        private static WcStandingsPayload ParseStandings(string json, string competition)
         {
             using var doc = JsonDocument.Parse(json);
-            var standings = new List<Standing>();
-
-            var table = doc.RootElement
-                .GetProperty("standings")
-                .EnumerateArray()
-                .First(s => s.GetProperty("type").GetString() == "TOTAL")
-                .GetProperty("table");
-
-            var season = doc.RootElement
-                .GetProperty("season")
-                .GetProperty("startDate")
-                .GetDateTime().Year;
-
-            foreach (var row in table.EnumerateArray())
+            var payload = new WcStandingsPayload
             {
-                standings.Add(new Standing
+                CompetitionCode = competition,
+                UpdatedAt = DateTime.UtcNow,
+            };
+
+            if (!doc.RootElement.TryGetProperty("standings", out var arr))
+                return payload;
+
+            var allTeams = new List<StandingDto>();
+
+            foreach (var group in arr.EnumerateArray())
+            {
+                // Chỉ lấy type TOTAL (không lấy HOME/AWAY)
+                var type = group.TryGetProperty("type", out var t) ? t.GetString() : "";
+                var groupName = group.TryGetProperty("group", out var g) ? g.GetString() ?? "" : "";
+
+                if (type != "TOTAL") continue;
+                if (!group.TryGetProperty("table", out var table)) continue;
+
+                foreach (var row in table.EnumerateArray())
                 {
-                    CompetitionCode = "PL",
-                    Season = season,
-                    Position = row.GetProperty("position").GetInt32(),
-                    TeamExternalId = row.GetProperty("team").GetProperty("id").GetInt32(),
-                    TeamName = row.GetProperty("team").GetProperty("name").GetString()!,
-                    TeamShortName = row.GetProperty("team").GetProperty("shortName").GetString()!,
-                    TeamCrest = row.GetProperty("team").GetProperty("crest").GetString()!,
-                    PlayedGames = row.GetProperty("playedGames").GetInt32(),
-                    Won = row.GetProperty("won").GetInt32(),
-                    Draw = row.GetProperty("draw").GetInt32(),
-                    Lost = row.GetProperty("lost").GetInt32(),
-                    GoalDifference = row.GetProperty("goalDifference").GetInt32(),
-                    Points = row.GetProperty("points").GetInt32(),
-                    LastSyncedAt = DateTime.UtcNow,
-                });
+                    var team = row.GetProperty("team");
+                    allTeams.Add(new StandingDto
+                    {
+                        Position = row.GetProperty("position").GetInt32(),
+                        TeamExternalId = team.GetProperty("id").GetInt32(),
+                        TeamName = team.GetProperty("name").GetString() ?? "",
+                        TeamShortName = team.GetProperty("shortName").GetString() ?? "",
+                        TeamCrest = team.GetProperty("crest").GetString() ?? "",
+                        GroupName = groupName,
+                        PlayedGames = row.GetProperty("playedGames").GetInt32(),
+                        Won = row.GetProperty("won").GetInt32(),
+                        Draw = row.GetProperty("draw").GetInt32(),
+                        Lost = row.GetProperty("lost").GetInt32(),
+                        Points = row.GetProperty("points").GetInt32(),
+                        GoalsFor = row.GetProperty("goalsFor").GetInt32(),
+                        GoalsAgainst = row.GetProperty("goalsAgainst").GetInt32(),
+                        GoalDifference = row.GetProperty("goalDifference").GetInt32(),
+                    });
+                }
             }
 
-            return standings;
+            // Flatten + sort theo yêu cầu:
+            // 1. Points DESC
+            // 2. PlayedGames DESC
+            // 3. GoalDifference DESC
+            // 4. GoalsFor DESC
+            // 5. GoalsAgainst ASC (ít bị thủng lưới hơn thì tốt hơn)
+            payload.Standings = allTeams
+                .OrderByDescending(t => t.Points)
+                .ThenByDescending(t => t.PlayedGames)
+                .ThenByDescending(t => t.GoalDifference)
+                .ThenByDescending(t => t.GoalsFor)
+                .ThenBy(t => t.GoalsAgainst)
+                .Select((t, index) => { t.Position = index + 1; return t; })
+                .ToList();
+
+            return payload;
         }
 
-        private static int? TryGetScore(JsonElement match, string side)
+        // ── Helpers ───────────────────────────────────────────────────────────
+        private static TeamInMatchDto ParseTeam(JsonElement t) => new()
         {
-            if (!match.TryGetProperty("score", out var score)) return null;
+            ExternalId = t.TryGetProperty("id", out var id) && id.ValueKind != JsonValueKind.Null
+                            ? id.GetInt32() : 0,
+            Name = t.TryGetProperty("name", out var name) && name.ValueKind != JsonValueKind.Null
+                            ? name.GetString() ?? "" : "",
+            ShortName = t.TryGetProperty("shortName", out var sn) && sn.ValueKind != JsonValueKind.Null
+                            ? sn.GetString() ?? "" : "",
+            Tla = t.TryGetProperty("tla", out var tla) && tla.ValueKind != JsonValueKind.Null
+                            ? tla.GetString() ?? "" : "",
+            Crest = t.TryGetProperty("crest", out var crest) && crest.ValueKind != JsonValueKind.Null
+                            ? crest.GetString() ?? "" : "",
+        };
+
+        private static int? TryGetScore(JsonElement m, string side)
+        {
+            if (!m.TryGetProperty("score", out var score)) return null;
             if (!score.TryGetProperty("fullTime", out var ft)) return null;
             if (!ft.TryGetProperty(side, out var val)) return null;
             return val.ValueKind == JsonValueKind.Null ? null : val.GetInt32();
         }
-
-        private static EnumMatchStatus ParseStatus(string s) => s switch
-        {
-            "TIMED" => EnumMatchStatus.Timed,
-            "SCHEDULED" => EnumMatchStatus.Scheduled,
-            "LIVE" => EnumMatchStatus.Live,
-            "IN_PLAY" => EnumMatchStatus.InPlay,
-            "PAUSED" => EnumMatchStatus.Paused,
-            "FINISHED" => EnumMatchStatus.Finished,
-            "POSTPONED" => EnumMatchStatus.Postponed,
-            "SUSPENDED" => EnumMatchStatus.Suspended,
-            "CANCELLED" => EnumMatchStatus.Cancelled,
-            _ => throw new ArgumentOutOfRangeException($"Unknown status: {s}")
-        };
-    }
-
-    // Result object để truyền thông tin giữa Job và BackgroundService
-    public class SyncTodayResult
-    {
-        public bool HasLiveMatch { get; set; }
-        public bool AnyJustFinished { get; set; }
-        public bool AllFinished { get; set; }
     }
 }
