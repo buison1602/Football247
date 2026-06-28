@@ -22,6 +22,10 @@ namespace Football247.Application.Service.FootballBackground
         public Task<string> GetStandingsAsync(string competition, CancellationToken ct = default)
             => GetAsync($"competitions/{competition}/standings", ct);
 
+        // Chi tiết 1 trận đấu
+        public Task<string> GetMatchDetailAsync(int matchId, CancellationToken ct = default)
+            => GetAsync($"matches/{matchId}", ct);
+
         private async Task<string> GetAsync(string path, CancellationToken ct)
         {
             _logger.LogDebug("[FootballDataClient] GET {Path}", path);

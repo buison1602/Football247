@@ -8,7 +8,7 @@ namespace Football247.Application.Service.FootballBackground
     public class FootballDataBackgroundService : BackgroundService
     {
         // Cứ 1 phút gọi 1 lần → 2 competitions = 2 requests/phút, an toàn
-        private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
+        private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(1);
 
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IConfiguration _config;
@@ -75,6 +75,8 @@ namespace Football247.Application.Service.FootballBackground
                     job.SyncMatchesAsync(competition, ct),
                     job.SyncStandingsAsync(competition, ct)
                 );
+
+                await job.SyncLiveMatchDetailsAsync(ct);
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)

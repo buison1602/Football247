@@ -26,7 +26,20 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddSignalR();
+//builder.Services.AddSignalR();
+// ✅ ĐỔI THÀNH ĐOẠN MỚI NÀY:
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true; // Bật lỗi chi tiết để dễ debug
+})
+.AddJsonProtocol(options =>
+{
+    // 🌟 DÒNG QUAN TRỌNG NHẤT: Bỏ qua lỗi vòng lặp tuần hoàn dữ liệu
+    options.PayloadSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+
+    // Đảm bảo JSON trả về viết thường chữ cái đầu (camelCase) đúng chuẩn Frontend cần
+    options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+});
 
 builder.Services.Configure<AppSetting>(builder.Configuration);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<AppSetting>>().Value);
@@ -266,6 +279,8 @@ builder.Services.Scan(scan => scan
     .WithScopedLifetime()
 );
 
+builder.Services.AddSingleton<FootballDataCache>();
+
 builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
@@ -332,5 +347,6 @@ app.MapHub<Football247Hub>("/football247hub");
 app.MapHub<ArticleCommentHub>("/hubs/article-comment");  // realtime comment theo từng bài viết
 app.MapHub<NotificationHub>("/hubs/notification");        // notification cá nhân theo userId
 app.MapHub<FootballHub>("/hubs/football");                // realtime football data theo competition
+app.MapHub<FootballHub>("/hubs/match-detail");
 
 app.Run();
