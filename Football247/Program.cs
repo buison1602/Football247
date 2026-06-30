@@ -7,6 +7,7 @@ using Football247.Authorization;
 using Football247.Domain.ValueSettings;
 using Football247.IdentityExtensions;
 using Football247.Infrastructure;
+using Football247.Infrastructure.Seeding;
 using Football247.Infrastructure.Services.UserService;
 using Football247.Middleware;
 using Football247.Models.Entities;
@@ -312,6 +313,10 @@ if (app.Environment.IsDevelopment())
     await app.ApplyMigrations();
 
     await app.SeedRolesAndPermissions();
+
+    await app.SeedAdminUser();
+
+    await app.SeedTeamsAsync();
 }
 
 app.UseMiddleware<ExceptionHandlerMiddleware>();

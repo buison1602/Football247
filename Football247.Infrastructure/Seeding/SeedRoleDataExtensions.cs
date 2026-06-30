@@ -1,10 +1,9 @@
-﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
+﻿using Football247.Application.Common.Data; 
+using Football247.Models.Entities;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using Football247.Application.Common.Data; // Nhớ using System cho Guid
+using System.Security.Claims;
 
 namespace Football247.Authorization
 {
@@ -79,6 +78,41 @@ namespace Football247.Authorization
             if (!claims.Any(c => c.Type == CustomClaimTypes.Permission && c.Value == permission))
             {
                 await roleManager.AddClaimAsync(role, new Claim(CustomClaimTypes.Permission, permission));
+            }
+        }
+
+        public static async Task SeedAdminUser(this WebApplication app)
+        {
+            using var scope = app.Services.CreateScope();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+            const string adminEmail = "superadmin@gmail.com";
+            const string adminPassword = "Dhtl@123";
+
+            var adminUser = await userManager.FindByEmailAsync(adminEmail);
+
+            if (adminUser == null)
+            {
+                adminUser = new ApplicationUser
+                {
+                    UserName = adminEmail,
+                    Email = adminEmail,
+                    EmailConfirmed = true,
+                    CreatedDate = DateTime.UtcNow
+                };
+
+                var createResult = await userManager.CreateAsync(adminUser, adminPassword);
+
+                if (!createResult.Succeeded)
+                {
+                    var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                    throw new Exception($"Seed admin user thất bại: {errors}");
+                }
+            }
+
+            if (!await userManager.IsInRoleAsync(adminUser, Roles.Admin))
+            {
+                await userManager.AddToRoleAsync(adminUser, Roles.Admin);
             }
         }
     }

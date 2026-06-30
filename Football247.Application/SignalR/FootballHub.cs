@@ -58,14 +58,47 @@ namespace Football247.Application.SignalR
         //}
         // 🌟 BÍ QUYẾT Ở ĐÂY: Cho FE Invoke lấy Chi tiết trận đấu
         // Tìm trực tiếp trong Cache của danh sách Matches, KHÔNG gọi API ngoài
+        //public object GetInitialMatchDetail(int matchId)
+        //{
+        //    // Duyệt qua cache của các giải đấu đang có (PL, WC...)
+        //    foreach (var cacheEntry in _cache.Matches)
+        //    {
+        //        if (cacheEntry.Value is WcSchedulePayload payload)
+        //        {
+        //            // Lục tìm trong các vòng đấu (Stage) và nhóm (Group)
+        //            var match = payload.Stages
+        //                .SelectMany(s => s.Groups)
+        //                .SelectMany(g => g.Matches)
+        //                .FirstOrDefault(m => m.ExternalId == matchId);
+
+        //            if (match != null)
+        //            {
+        //                return match; // Tìm thấy phát là trả về luôn
+        //            }
+        //        }
+        //    }
+
+        //    return null; // Không tìm thấy
+        //}
+        // Hàm cho FE Invoke lấy Chi tiết trận đấu lập tức
+        // Ưu tiên 1: Cache MatchDetails (đầy đủ referees, venue, halfTime...)
+        //            → có khi trận đã/đang live (background đã gọi SyncMatchDetailAsync)
+        // Ưu tiên 2 (fallback): Cache Matches (MatchFixtureDto - thiếu referees/venue)
+        //            → dùng khi trận chưa từng live, FE vẫn có data cơ bản để hiển thị
         public object GetInitialMatchDetail(int matchId)
         {
-            // Duyệt qua cache của các giải đấu đang có (PL, WC...)
+            // Ưu tiên 1: đã có data chi tiết đầy đủ trong cache
+            if (_cache.MatchDetails.TryGetValue(matchId, out var detail))
+            {
+                return detail; // MatchDetailPayload — có referees, venue, halfTime
+            }
+
+            // Ưu tiên 2: fallback — trận chưa từng được sync detail
+            // Trả về dạng bọc tương tự MatchDetailPayload để FE không phải check 2 shape khác nhau
             foreach (var cacheEntry in _cache.Matches)
             {
                 if (cacheEntry.Value is WcSchedulePayload payload)
                 {
-                    // Lục tìm trong các vòng đấu (Stage) và nhóm (Group)
                     var match = payload.Stages
                         .SelectMany(s => s.Groups)
                         .SelectMany(g => g.Matches)
@@ -73,12 +106,37 @@ namespace Football247.Application.SignalR
 
                     if (match != null)
                     {
-                        return match; // Tìm thấy phát là trả về luôn
+                        // Map sang MatchDetailDto rỗng phần referees/venue
+                        // để FE luôn nhận đúng 1 shape duy nhất
+                        return new MatchDetailPayload
+                        {
+                            UpdatedAt = DateTime.UtcNow,
+                            Match = new MatchDetailDto
+                            {
+                                ExternalId = match.ExternalId,
+                                UtcDate = match.UtcDate,
+                                Status = match.Status,
+                                Matchday = match.Matchday,
+                                Stage = match.Stage,
+                                Group = match.Group,
+                                Venue = null,         // chưa có data
+                                HomeTeam = match.HomeTeam,
+                                AwayTeam = match.AwayTeam,
+                                Score = new MatchScoreDto
+                                {
+                                    Winner = match.Winner,
+                                    Duration = "REGULAR",
+                                    FullTime = new ScoreLineDto { Home = match.HomeScore, Away = match.AwayScore },
+                                    HalfTime = new ScoreLineDto { Home = null, Away = null },
+                                },
+                                Referees = new List<RefereeDto>(), // chưa có data
+                            },
+                        };
                     }
                 }
             }
 
-            return null; // Không tìm thấy
+            return null; // Không tìm thấy ở đâu cả
         }
 
         protected override async Task OnHubConnectedAsync()

@@ -14,6 +14,10 @@ namespace Football247.Application.Service.FootballBackground
         private readonly ILogger<FootballSyncJob> _logger;
         private readonly FootballDataCache _cache;
 
+        // Múi giờ Việt Nam: UTC+7
+        private static readonly TimeZoneInfo VnTimeZone =
+            TimeZoneInfo.CreateCustomTimeZone("VN", TimeSpan.FromHours(7), "Vietnam Standard Time", "Vietnam Standard Time");
+
         private static readonly Dictionary<string, string> StageLabels = new()
         {
             ["GROUP_STAGE"] = "Vòng bảng",
@@ -43,6 +47,17 @@ namespace Football247.Application.Service.FootballBackground
             _cache = cache;
         }
 
+        // ── Helper: convert UTC → giờ Việt Nam (UTC+7) ───────────────────────
+        private static DateTime ToVnTime(DateTime utcDate)
+        {
+            // Đảm bảo DateTimeKind là Utc trước khi convert (JSON parse trả về Utc sẵn nhưng check cho chắc)
+            var utc = utcDate.Kind == DateTimeKind.Utc
+                ? utcDate
+                : DateTime.SpecifyKind(utcDate, DateTimeKind.Utc);
+
+            return TimeZoneInfo.ConvertTimeFromUtc(utc, VnTimeZone);
+        }
+
         // ── Sync danh sách trận ───────────────────────────────────────────────
         public async Task SyncMatchesAsync(string competition, CancellationToken ct)
         {
@@ -54,7 +69,6 @@ namespace Football247.Application.Service.FootballBackground
 
                 _cache.Matches[competition] = payload;
 
-                // Cập nhật danh sách live match ids
                 _cache.LiveMatchIds.Clear();
                 foreach (var stage in payload.Stages)
                     foreach (var group in stage.Groups)
@@ -110,12 +124,9 @@ namespace Football247.Application.Service.FootballBackground
             }
         }
 
-        // ── Sync chi tiết 1 trận theo matchId ────────────────────────────────
-        // Gửi lên group "match-{matchId}" → event "MatchDetailUpdated"
+        // ── Sync chi tiết tất cả trận đang live ──────────────────────────────
         public async Task SyncLiveMatchDetailsAsync(CancellationToken ct)
         {
-            _logger.LogInformation("\n\n\n SyncLiveMatchDetailsAsync started+++++++++++++++++++++++++++++++++++++++++++++++++++++++++.\n\n\n\n");
-
             var liveIds = _cache.LiveMatchIds.Keys.ToList();
 
             if (liveIds.Count == 0)
@@ -138,7 +149,7 @@ namespace Football247.Application.Service.FootballBackground
             }
         }
 
-        // ── 4. Sync detail 1 trận cụ thể ─────────────────────────────────────
+        // ── Sync detail 1 trận cụ thể ─────────────────────────────────────────
         public async Task SyncMatchDetailAsync(int matchId, CancellationToken ct)
         {
             try
@@ -146,10 +157,8 @@ namespace Football247.Application.Service.FootballBackground
                 var json = await _client.GetMatchDetailAsync(matchId, ct);
                 var payload = ParseMatchDetail(json);
 
-                // Lưu vào cache
                 _cache.MatchDetails[matchId] = payload;
 
-                // Nếu trận đã kết thúc → xóa khỏi live list
                 if (payload.Match.IsFinished)
                 {
                     _cache.LiveMatchIds.TryRemove(matchId, out _);
@@ -157,7 +166,6 @@ namespace Football247.Application.Service.FootballBackground
                         "[MatchDetail] Match {Id} FINISHED → removed from live list.", matchId);
                 }
 
-                // Push lên hub
                 await _hub.Clients
                     .Group($"match-{matchId}")
                     .SendAsync("MatchDetailUpdated", payload, ct);
@@ -180,13 +188,14 @@ namespace Football247.Application.Service.FootballBackground
         }
 
         // ── Parse matches → WcSchedulePayload ────────────────────────────────
-        private static WcSchedulePayload ParseMatches(string json, string competition)
+        private WcSchedulePayload ParseMatches(string json, string competition)
         {
             using var doc = JsonDocument.Parse(json);
             var payload = new WcSchedulePayload
             {
                 CompetitionCode = competition,
                 UpdatedAt = DateTime.UtcNow,
+                //UpdatedAt = ToVnTime(DateTime.UtcNow),
             };
 
             if (!doc.RootElement.TryGetProperty("matches", out var arr))
@@ -199,6 +208,7 @@ namespace Football247.Application.Service.FootballBackground
                 {
                     ExternalId = m.GetProperty("id").GetInt32(),
                     UtcDate = m.GetProperty("utcDate").GetDateTime(),
+                    //UtcDate = ToVnTime(m.GetProperty("utcDate").GetDateTime()),
                     Status = m.GetProperty("status").GetString() ?? "",
                     Matchday = m.TryGetProperty("matchday", out var md)
                                  && md.ValueKind != JsonValueKind.Null ? md.GetInt32() : 0,
@@ -265,13 +275,14 @@ namespace Football247.Application.Service.FootballBackground
         }
 
         // ── Parse standings → flatten, sort ──────────────────────────────────
-        private static WcStandingsPayload ParseStandings(string json, string competition)
+        private WcStandingsPayload ParseStandings(string json, string competition)
         {
             using var doc = JsonDocument.Parse(json);
             var payload = new WcStandingsPayload
             {
                 CompetitionCode = competition,
                 UpdatedAt = DateTime.UtcNow,
+                //UpdatedAt = ToVnTime(DateTime.UtcNow),
             };
 
             if (!doc.RootElement.TryGetProperty("standings", out var arr))
@@ -323,7 +334,7 @@ namespace Football247.Application.Service.FootballBackground
         }
 
         // ── Parse match detail → MatchDetailPayload ───────────────────────────
-        private static MatchDetailPayload ParseMatchDetail(string json)
+        private MatchDetailPayload ParseMatchDetail(string json)
         {
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
@@ -335,6 +346,7 @@ namespace Football247.Application.Service.FootballBackground
             {
                 ExternalId = root.GetProperty("id").GetInt32(),
                 UtcDate = root.GetProperty("utcDate").GetDateTime(),
+                //UtcDate = ToVnTime(root.GetProperty("utcDate").GetDateTime()),
                 Status = root.GetProperty("status").GetString() ?? "",
                 Matchday = root.TryGetProperty("matchday", out var md)
                              && md.ValueKind != JsonValueKind.Null ? md.GetInt32() : 0,
@@ -373,6 +385,7 @@ namespace Football247.Application.Service.FootballBackground
             return new MatchDetailPayload
             {
                 UpdatedAt = DateTime.UtcNow,
+                //UpdatedAt = ToVnTime(DateTime.UtcNow),
                 Match = match,
             };
         }
