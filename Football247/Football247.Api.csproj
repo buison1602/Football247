@@ -29,10 +29,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Images\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\Football247.Application\Football247.Application.csproj" />
     <ProjectReference Include="..\Football247.Infrastructure\Football247.Infrastructure.csproj" />
   </ItemGroup>

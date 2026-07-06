@@ -55,6 +55,8 @@ namespace Football247.Repositories
         {
             return await _db.Articles
                 .AsNoTracking()
+                .Include(x => x.ArticleTags)
+                    .ThenInclude(at => at.Tag)
                 .Where(a => a.Slug == articleSlug)
                 .Select(a => new ArticleDto
                 {

@@ -1,0 +1,31 @@
+# 1. Sử dụng SDK .NET 8 để build source code
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
+WORKDIR /src
+
+# Copy tất cả các file .csproj vào đúng thư mục để restore Nuget trước
+COPY ["Football247/Football247.Api.csproj", "Football247/"]
+COPY ["Football247.Application/Football247.Application.csproj", "Football247.Application/"]
+COPY ["Football247.Domain/Football247.Domain.csproj", "Football247.Domain/"]
+COPY ["Football247.Infrastructure/Football247.Infrastructure.csproj", "Football247.Infrastructure/"]
+COPY ["Shared/Shared.csproj", "Shared/"]
+
+# Chạy restore Nuget cho toàn bộ hệ thống
+RUN dotnet restore "Football247/Football247.Api.csproj"
+
+# Copy toàn bộ mã nguồn còn lại vào container
+COPY . .
+
+# Biên dịch và publish riêng project API ra thư mục /app
+WORKDIR "/src/Football247"
+RUN dotnet publish "Football247.Api.csproj" -c Release -o /app/out
+# 2. Tạo image runtime nhỏ gọn để chạy ứng dụng
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build-env /app/out .
+
+# Cấu hình cổng chạy mặc định bên trong container
+ENV ASPNETCORE_URLS=http://+:5000
+EXPOSE 5000
+
+# Chạy file dll chính của tầng API
+ENTRYPOINT ["dotnet", "Football247.Api.dll"]

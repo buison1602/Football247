@@ -46,6 +46,20 @@ namespace Football247.Infrastructure
             modelBuilder.ApplyConfiguration(new StandingEntityTypeConfiguration());
             modelBuilder.ApplyConfiguration(new ApplicationUserEntityTypeConfiguration());
 
+            modelBuilder.Entity<ArticleTag>(entity =>
+            {
+                entity.HasKey(at => new { at.ArticleId, at.TagId });
+
+                entity.HasOne(at => at.Article)
+                    .WithMany(a => a.ArticleTags)
+                    .HasForeignKey(at => at.ArticleId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(at => at.Tag)
+                    .WithMany(t => t.ArticleTags)
+                    .HasForeignKey(at => at.TagId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
             #region Seeding data
 

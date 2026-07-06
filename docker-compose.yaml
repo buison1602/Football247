@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # 1. Cấu hình dịch vụ Database (SQL Server 2022 trên Linux)
+  sqlserver_db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: football247_sqlserver
+    ports:
+      - "1433:1433" # Mở cổng 1433 để bạn có thể dùng SSMS từ máy cá nhân kết nối vào Droplet quản lý DB
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=123456aA@! # Đặt mật khẩu SA cho SQL Server của bạn ở đây
+    volumes:
+      - sqlserver_data:/var/opt/mssql # Giúp dữ liệu database không bị mất khi container bị restart hoặc tắt đi
+    networks:
+      - football247_net
+
+  # 2. Cấu hình dịch vụ Backend (.NET 8 Web API) dùng Image từ Docker Hub
+  backend_api:
+    # THAY ĐỔI Ở ĐÂY: Thay phần build bằng image trên Docker Hub của bạn
+    # Ví dụ: image: buicongson/football247-backend:latest
+    image: sondev777/football247-backend:latest
+    container_name: football247_backend
+    ports:
+      - "5000:5000" # Mở cổng 5000 để các request từ ngoài Droplet gọi vào API được
+    depends_on:
+      - sqlserver_db # Ép Backend phải đợi dịch vụ SQL Server khởi động xong rồi mới chạy
+    volumes:
+      # CHÈN THÊM DÒNG NÀY: Gắn thư mục Images của container ra ổ đĩa độc lập bên ngoài
+      - backend_images_data:/app/Images
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Football247ConnectionString=${CONNECTION_STRING}
+      - Jwt__Key=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+      - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID}
+      - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
+      - Smtp__Password=${SMTP_PASSWORD}
+      - FootballData__ApiToken=${FOOTBALL_API_TOKEN}
+      - PayOS__BaseUrl=${PAYOS_BASE_URL}
+      - PayOS__ReturnUrl=${PAYOS_RETURN_URL}
+      - PayOS__CancelUrl=${PAYOS_CANCEL_URL}
+      - PayOS__ClientId=${PAYOS_CLIENT_ID}
+      - PayOS__ApiKey=${PAYOS_API_KEY}
+      - PayOS__ChecksumKey=${PAYOS_CHECKSUM_KEY}
+      - AppConfig__BaseUrl=${APP_BASE_URL}
+    networks:
+      - football247_net
+
+# Khai báo các Volume và Network dùng chung ở cấp độ toàn hệ thống
+volumes:
+  sqlserver_data: # Khai báo ổ đĩa ảo để lưu data cho SQL Server
+  backend_images_data: # Khai báo ổ đĩa độc lập phục vụ lưu trữ ảnh lâu dài
+
+networks:
+  football247_net:
+    driver: bridge # Tạo một mạng ảo nội bộ bảo mật cho database và api giao tiếp với nhau

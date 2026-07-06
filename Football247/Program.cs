@@ -16,6 +16,7 @@ using Football247.Repositories.IRepository;
 using Football247.Services.Caching;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -323,10 +324,21 @@ app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 app.UseHttpsRedirection();
 
-// Phục vụ file tĩnh (ví dụ: hình ảnh)
+// =============================================================
+// 📸 CẤU HÌNH THƯ MỤC LƯU TRỮ VÀ PHỤC VỤ FILE TĨNH (IMAGES)
+// =============================================================
+var imagesPath = Path.Combine(Directory.GetCurrentDirectory(), "Images");
+
+// Kiểm tra phòng thủ: Nếu thư mục Images chưa tồn tại trong container, tự động tạo mới
+if (!Directory.Exists(imagesPath))
+{
+    Directory.CreateDirectory(imagesPath);
+}
+
+// Phục vụ các yêu cầu tải file tĩnh
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "Images")),
+    FileProvider = new PhysicalFileProvider(imagesPath),
     RequestPath = "/Images"
 });
 
