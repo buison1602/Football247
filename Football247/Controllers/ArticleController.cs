@@ -54,7 +54,7 @@ namespace Football247.Controllers
             return commandResult.GetActionResult();
         }
 
-
+           
 
         [HttpPut]
         [Route("{id:guid}")]
