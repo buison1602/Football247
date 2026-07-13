@@ -36,12 +36,6 @@ namespace Football247.Application.Command.ProcessWebhookCmd
         {
             var verifiedData = await _payOS.Webhooks.VerifyAsync(request.WebhookData);
 
-            // Thêm log để xem giá trị thực tế
-            Console.WriteLine($"\n\n\n== WEBHOOK DEBUG ===");
-            Console.WriteLine($"verifiedData.Code: '{verifiedData.Code}'");
-            Console.WriteLine($"verifiedData.OrderCode: '{verifiedData.OrderCode}'");
-            Console.WriteLine($"====================\n\n\n");
-
             if (verifiedData.Code != "00")
             {
                 Console.WriteLine($">>> BỎ QUA vì Code != 00");

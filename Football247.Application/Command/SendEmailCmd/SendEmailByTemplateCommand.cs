@@ -1,4 +1,4 @@
-﻿using Football247.Application.Helper;
+using Football247.Application.Helper;
 using Football247.Domain.Models.CommandModels.SendEmailCmdModel;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -33,10 +33,18 @@ namespace Football247.Application.Command.SendEmailCmd
                 return methodResult;
             }
 
-            var projectDirectory = Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory).Parent.Parent.Parent.FullName;
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var path = Path.Combine(baseDir, "Resource", $"{request.Template}.html");
 
-            // Đảm bảo SenderSettings.TemplateFileName của bạn là "Resource/{0}.html" 
-            var path = Path.Combine(projectDirectory, "Resource", $"{request.Template}.html");
+            // Nếu chạy Debug ở Visual Studio (Local), thư mục Resource có thể nằm ở thư mục gốc Project
+            if (!File.Exists(path))
+            {
+                var projectDirectory = Directory.GetParent(baseDir)?.Parent?.Parent?.Parent?.FullName;
+                if (projectDirectory != null)
+                {
+                    path = Path.Combine(projectDirectory, "Resource", $"{request.Template}.html");
+                }
+            }
 
             if (!File.Exists(path))
             {

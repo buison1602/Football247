@@ -2,6 +2,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
 WORKDIR /src
 
+# Kỹ thuật layer caching
 # Copy tất cả các file .csproj vào đúng thư mục để restore Nuget trước
 COPY ["Football247/Football247.Api.csproj", "Football247/"]
 COPY ["Football247.Application/Football247.Application.csproj", "Football247.Application/"]
@@ -18,6 +19,7 @@ COPY . .
 # Biên dịch và publish riêng project API ra thư mục /app
 WORKDIR "/src/Football247"
 RUN dotnet publish "Football247.Api.csproj" -c Release -o /app/out
+
 # 2. Tạo image runtime nhỏ gọn để chạy ứng dụng
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app

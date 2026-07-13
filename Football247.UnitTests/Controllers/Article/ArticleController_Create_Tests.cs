@@ -1,344 +1,237 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using Football247.Application.Command.ArticleCmd;
 using Football247.Controllers;
 using Football247.Domain.Models.EntityModels.DTOs.Article;
-using Football247.Services.IService;
+using Football247.Shared.Enum.ErrorCode;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Moq;
+using Shared.Response;
 using Xunit;
 
 namespace Football247.UnitTests.Controllers.Article
 {
     /// <summary>
-    /// Unit tests cho ArticleController.Create method
-    /// Test 3 scenarios: Success, InvalidOperationException, Exception
+    /// Unit test cho ArticleController.Create.
+    ///
+    /// Khác với bản cũ (mock IArticleService trực tiếp), controller hiện tại chỉ
+    /// phụ thuộc IMediator, nên ta mock IMediator.Send(CreateArticleCommand) và
+    /// verify controller trả về đúng IActionResult mà GetActionResult() tạo ra
+    /// từ MethodResult<ArticleDto>.
+    ///
+    /// Toàn bộ logic validate/slug trùng/lỗi hệ thống nằm trong CreateArticleHandler,
+    /// KHÔNG nằm trong controller -> test controller ở đây chỉ verify controller
+    /// "chuyển tiếp" đúng, không test lại business logic của handler (việc đó nên
+    /// có 1 file test riêng: CreateArticleHandler_Tests.cs).
     /// </summary>
-    //public class ArticleController_Create_Tests : ControllerTestBase<ArticleController>
-    //{
-    //    #region Setup & Dependencies
-        
-    //    // Mock IArticleService - dependency chính của controller
-    //    private readonly Mock<IArticleService> _mockArticleService;
-        
-    //    // Controller instance để test
-    //    private readonly ArticleController _controller;
+    public class ArticleController_Create_Tests
+    {
+        private readonly Mock<IMediator> _mockMediator;
+        private readonly ArticleController _controller;
 
-    //    public ArticleController_Create_Tests()
-    //    {
-    //        // Khởi tạo mock service
-    //        _mockArticleService = new Mock<IArticleService>();
-            
-    //        // Inject dependencies vào controller
-    //        // Logger.Object đến từ ControllerTestBase
-    //        _controller = new ArticleController(Logger.Object, _mockArticleService.Object);
-    //    }
+        public ArticleController_Create_Tests()
+        {
+            _mockMediator = new Mock<IMediator>();
+            _controller = new ArticleController(_mockMediator.Object);
+        }
 
-    //    #endregion
+        private static CreateArticleCommand BuildValidCommand()
+        {
+            return new CreateArticleCommand
+            {
+                Title = "Test Article Title",
+                Slug = "test-article-title",
+                Description = "This is a test article description",
+                Content = "This is the full content of the test article",
+                Priority = 1,
+                CategoryId = Guid.NewGuid(),
+                TeamId = null,
+                TagIds = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() }
+            };
+        }
 
-    //    #region Test Scenario 1: Success (Happy Path)
+        #region Scenario 1: Success (200)
 
-    //    /// <summary>
-    //    /// Test case: Tạo article thành công
-    //    /// Expected: Trả về 201 Created với ArticleDto và Location header
-    //    /// </summary>
-    //    [Fact]
-    //    public async Task Create_ValidInput_Returns201CreatedWithArticleDto()
-    //    {
-    //        // ============ ARRANGE ============
-    //        // Tạo input DTO (không cần mock IFormFile vì controller không xử lý file)
-    //        var inputDto = new AddArticleRequestDto
-    //        {
-    //            Title = "Test Article Title",
-    //            Slug = "test-article-title",
-    //            Description = "This is a test article description",
-    //            Content = "This is the full content of the test article",
-    //            Priority = 1,
-    //            BgrImgs = new List<IFormFile>(), // Empty list - không cần mock
-    //            Captions = new List<string>(),   // Empty list
-    //            IsApproved = 0,
-    //            CreatorId = Guid.NewGuid(),
-    //            CategoryId = Guid.NewGuid(),
-    //            TagIds = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() }
-    //        };
+        [Fact]
+        public async Task Create_ValidCommand_ReturnsOkWithArticleDto()
+        {
+            // Arrange
+            var command = BuildValidCommand();
 
-    //        // Tạo expected output từ service
-    //        var expectedArticleDto = new ArticleDto
-    //        {
-    //            Id = Guid.NewGuid(),
-    //            Title = inputDto.Title,
-    //            Slug = inputDto.Slug,
-    //            Description = inputDto.Description,
-    //            Content = inputDto.Content,
-    //            Priority = inputDto.Priority,
-    //            ViewCount = 0,
-    //            CreatedAt = DateTime.UtcNow,
-    //            UpdatedAt = null,
-    //            IsApproved = 0,
-    //            CreatorId = inputDto.CreatorId,
-    //            CreatorName = "Test Creator",
-    //            CategoryId = inputDto.CategoryId,
-    //            CategoryName = "Test Category",
-    //            Tags = new List<Football247.Domain.Models.EntityModels.DTOs.Tag.TagDto>
-    //            {
-    //                new Football247.Domain.Models.EntityModels.DTOs.Tag.TagDto { Id = inputDto.TagIds[0], Name = "Tag1", Slug = "tag1" },
-    //                new Football247.Domain.Models.EntityModels.DTOs.Tag.TagDto { Id = inputDto.TagIds[1], Name = "Tag2", Slug = "tag2" }
-    //            },
-    //            Images = new List<Football247.Domain.Models.EntityModels.DTOs.Image.ImageDto>()
-    //        };
+            var expectedDto = new ArticleDto
+            {
+                Id = Guid.NewGuid(),
+                Title = command.Title,
+                Slug = command.Slug,
+                Description = command.Description,
+                Content = command.Content,
+                Priority = command.Priority,
+                CategoryId = command.CategoryId,
+                CreatedDate = DateTime.UtcNow
+            };
 
-    //        // Setup mock service: Khi gọi CreateAsync với inputDto, trả về expectedArticleDto
-    //        _mockArticleService
-    //            .Setup(service => service.CreateAsync(inputDto))
-    //            .ReturnsAsync(expectedArticleDto);
+            var methodResult = new MethodResult<ArticleDto>
+            {
+                StatusCode = StatusCodes.Status200OK,
+                Result = expectedDto
+            };
 
-    //        // ============ ACT ============
-    //        // Gọi method cần test
-    //        var result = await _controller.Create(inputDto);
+            _mockMediator
+                .Setup(m => m.Send(command, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(methodResult);
 
-    //        // ============ ASSERT ============
-            
-    //        // 1. Verify result type = CreatedAtActionResult
-    //        var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(result);
-            
-    //        // 2. Verify status code = 201 Created
-    //        Assert.Equal(StatusCodes.Status201Created, createdAtActionResult.StatusCode);
-            
-    //        // 3. Verify action name = "GetArticleBySlug" (từ CreatedAtAction)
-    //        Assert.Equal(nameof(ArticleController.GetArticleBySlug), createdAtActionResult.ActionName);
-            
-    //        // 4. Verify route values chứa slug đúng
-    //        Assert.NotNull(createdAtActionResult.RouteValues);
-    //        Assert.True(createdAtActionResult.RouteValues.ContainsKey("articleSlug"));
-    //        Assert.Equal(expectedArticleDto.Slug, createdAtActionResult.RouteValues["articleSlug"]);
-            
-    //        // 5. Verify response body = expectedArticleDto
-    //        var returnedArticleDto = Assert.IsType<ArticleDto>(createdAtActionResult.Value);
-    //        Assert.Equal(expectedArticleDto.Id, returnedArticleDto.Id);
-    //        Assert.Equal(expectedArticleDto.Title, returnedArticleDto.Title);
-    //        Assert.Equal(expectedArticleDto.Slug, returnedArticleDto.Slug);
-    //        Assert.Equal(expectedArticleDto.Description, returnedArticleDto.Description);
-    //        Assert.Equal(expectedArticleDto.Content, returnedArticleDto.Content);
-            
-    //        // 6. Verify service được gọi ĐÚNG 1 LẦN với đúng input
-    //        _mockArticleService.Verify(
-    //            service => service.CreateAsync(inputDto),
-    //            Times.Once,
-    //            "Service CreateAsync should be called exactly once with the input DTO"
-    //        );
-            
-    //        // 7. Verify Logger được gọi (optional - check logging behavior)
-    //        Logger.Verify(
-    //            logger => logger.Log(
-    //                LogLevel.Information,
-    //                It.IsAny<EventId>(),
-    //                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Start")),
-    //                It.IsAny<Exception>(),
-    //                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-    //            Times.Once,
-    //            "Logger should log Information when method starts"
-    //        );
-    //    }
+            // Act
+            var result = await _controller.Create(command);
 
-    //    #endregion
+            // Assert
+            // GetActionResult() với StatusCode 200 kỳ vọng trả về Ok(...) -> ObjectResult 200
+            var objectResult = Assert.IsAssignableFrom<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status200OK, objectResult.StatusCode);
 
-    //    #region Test Scenario 2: Business Logic Error (InvalidOperationException)
+            // TODO: nếu GetActionResult() trả Value = cả MethodResult<ArticleDto>
+            // (thay vì chỉ Result) thì đổi assert bên dưới cho khớp.
+            var returnedDto = Assert.IsType<ArticleDto>(objectResult.Value);
+            Assert.Equal(expectedDto.Id, returnedDto.Id);
+            Assert.Equal(expectedDto.Slug, returnedDto.Slug);
+            Assert.Equal(expectedDto.Title, returnedDto.Title);
 
-    //    /// <summary>
-    //    /// Test case: Service throw InvalidOperationException (ví dụ: slug bị trùng)
-    //    /// Expected: Trả về 400 BadRequest với error message
-    //    /// </summary>
-    //    [Fact]
-    //    public async Task Create_ServiceThrowsInvalidOperationException_Returns400BadRequest()
-    //    {
-    //        // ============ ARRANGE ============
-    //        var inputDto = new AddArticleRequestDto
-    //        {
-    //            Title = "Duplicate Article",
-    //            Slug = "duplicate-slug", // Slug đã tồn tại
-    //            Description = "Test description",
-    //            Content = "Test content",
-    //            Priority = 1,
-    //            BgrImgs = new List<IFormFile>(),
-    //            Captions = new List<string>(),
-    //            IsApproved = 0,
-    //            CreatorId = Guid.NewGuid(),
-    //            CategoryId = Guid.NewGuid(),
-    //            TagIds = new List<Guid> { Guid.NewGuid() }
-    //        };
+            _mockMediator.Verify(
+                m => m.Send(command, It.IsAny<CancellationToken>()),
+                Times.Once,
+                "Mediator.Send phải được gọi đúng 1 lần với command đầu vào");
+        }
 
-    //        var expectedErrorMessage = "An article with the slug 'duplicate-slug' already exists.";
+        #endregion
 
-    //        // Setup mock service: Throw InvalidOperationException
-    //        _mockArticleService
-    //            .Setup(service => service.CreateAsync(inputDto))
-    //            .ThrowsAsync(new InvalidOperationException(expectedErrorMessage));
+        #region Scenario 2: Validation error - thiếu Title (400)
 
-    //        // ============ ACT ============
-    //        var result = await _controller.Create(inputDto);
+        [Fact]
+        public async Task Create_MissingTitle_ReturnsBadRequest()
+        {
+            // Arrange
+            var command = BuildValidCommand();
+            command.Title = string.Empty;
 
-    //        // ============ ASSERT ============
-            
-    //        // 1. Verify result type = BadRequestObjectResult
-    //        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            
-    //        // 2. Verify status code = 400 BadRequest
-    //        Assert.Equal(StatusCodes.Status400BadRequest, badRequestResult.StatusCode);
-            
-    //        // 3. Verify response body chứa error message
-    //        Assert.Equal(expectedErrorMessage, badRequestResult.Value);
-            
-    //        // 4. Verify service được gọi 1 lần
-    //        _mockArticleService.Verify(
-    //            service => service.CreateAsync(inputDto),
-    //            Times.Once
-    //        );
-            
-    //        // 5. Verify Logger ghi log Warning
-    //        Logger.Verify(
-    //            logger => logger.Log(
-    //                LogLevel.Warning,
-    //                It.IsAny<EventId>(),
-    //                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Create Article failed")),
-    //                It.IsAny<Exception>(),
-    //                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-    //            Times.Once,
-    //            "Logger should log Warning when InvalidOperationException occurs"
-    //        );
-    //    }
+            var methodResult = new MethodResult<ArticleDto>();
+            methodResult.AddError(
+                StatusCodes.Status400BadRequest,
+                nameof(EnumSystemErrorCode.Required),
+                nameof(command.Title));
 
-    //    #endregion
+            _mockMediator
+                .Setup(m => m.Send(command, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(methodResult);
 
-    //    #region Test Scenario 3: Unexpected Error (Exception)
+            // Act
+            var result = await _controller.Create(command);
 
-    //    /// <summary>
-    //    /// Test case: Service throw Exception (lỗi không mong đợi)
-    //    /// Expected: Trả về 500 Internal Server Error với error message
-    //    /// </summary>
-    //    [Fact]
-    //    public async Task Create_ServiceThrowsException_Returns500InternalServerError()
-    //    {
-    //        // ============ ARRANGE ============
-    //        var inputDto = new AddArticleRequestDto
-    //        {
-    //            Title = "Test Article",
-    //            Slug = "test-article",
-    //            Description = "Test description",
-    //            Content = "Test content",
-    //            Priority = 1,
-    //            BgrImgs = new List<IFormFile>(),
-    //            Captions = new List<string>(),
-    //            IsApproved = 0,
-    //            CreatorId = Guid.NewGuid(),
-    //            CategoryId = Guid.NewGuid(),
-    //            TagIds = new List<Guid> { Guid.NewGuid() }
-    //        };
+            // Assert
+            var objectResult = Assert.IsAssignableFrom<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
 
-    //        var expectedErrorMessage = "Database connection failed";
+            _mockMediator.Verify(
+                m => m.Send(command, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
 
-    //        // Setup mock service: Throw generic Exception (unexpected error)
-    //        _mockArticleService
-    //            .Setup(service => service.CreateAsync(inputDto))
-    //            .ThrowsAsync(new Exception(expectedErrorMessage));
+        #endregion
 
-    //        // ============ ACT ============
-    //        var result = await _controller.Create(inputDto);
+        #region Scenario 3: Slug đã tồn tại (400 - DataAlreadyExist)
 
-    //        // ============ ASSERT ============
-            
-    //        // 1. Verify result type = ObjectResult (vì StatusCode(500, message))
-    //        var objectResult = Assert.IsType<ObjectResult>(result);
-            
-    //        // 2. Verify status code = 500 Internal Server Error
-    //        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
-            
-    //        // 3. Verify response body chứa error message
-    //        Assert.Equal(expectedErrorMessage, objectResult.Value);
-            
-    //        // 4. Verify service được gọi 1 lần
-    //        _mockArticleService.Verify(
-    //            service => service.CreateAsync(inputDto),
-    //            Times.Once
-    //        );
-            
-    //        // 5. Verify Logger ghi log Error
-    //        Logger.Verify(
-    //            logger => logger.Log(
-    //                LogLevel.Error,
-    //                It.IsAny<EventId>(),
-    //                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("error")),
-    //                It.IsAny<Exception>(),
-    //                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-    //            Times.Once,
-    //            "Logger should log Error when unexpected Exception occurs"
-    //        );
-    //    }
+        [Fact]
+        public async Task Create_DuplicateSlug_ReturnsBadRequest()
+        {
+            // Arrange
+            var command = BuildValidCommand();
+            command.Slug = "duplicate-slug";
 
-    //    #endregion
+            var methodResult = new MethodResult<ArticleDto>();
+            methodResult.AddError(
+                StatusCodes.Status400BadRequest,
+                nameof(EnumSystemErrorCode.DataAlreadyExist),
+                nameof(command.Slug));
 
-    //    #region Bonus Test: Verify CreatedAtAction Route Generation
+            _mockMediator
+                .Setup(m => m.Send(command, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(methodResult);
 
-    //    /// <summary>
-    //    /// Test case: Verify Location header được generate đúng format
-    //    /// Expected: Location = /api/Article/list/{slug}
-    //    /// </summary>
-    //    [Fact]
-    //    public async Task Create_ValidInput_GeneratesCorrectLocationHeader()
-    //    {
-    //        // ============ ARRANGE ============
-    //        var inputDto = new AddArticleRequestDto
-    //        {
-    //            Title = "Location Test",
-    //            Slug = "location-test-slug",
-    //            Description = "Test",
-    //            Content = "Test",
-    //            Priority = 1,
-    //            BgrImgs = new List<IFormFile>(),
-    //            Captions = new List<string>(),
-    //            IsApproved = 0,
-    //            CreatorId = Guid.NewGuid(),
-    //            CategoryId = Guid.NewGuid(),
-    //            TagIds = new List<Guid> { Guid.NewGuid() }
-    //        };
+            // Act
+            var result = await _controller.Create(command);
 
-    //        var expectedDto = new ArticleDto
-    //        {
-    //            Id = Guid.NewGuid(),
-    //            Slug = inputDto.Slug,
-    //            Title = inputDto.Title,
-    //            Description = inputDto.Description,
-    //            Content = inputDto.Content,
-    //            Priority = inputDto.Priority,
-    //            CreatorId = inputDto.CreatorId,
-    //            CategoryId = inputDto.CategoryId
-    //        };
+            // Assert
+            var objectResult = Assert.IsAssignableFrom<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
 
-    //        _mockArticleService
-    //            .Setup(s => s.CreateAsync(inputDto))
-    //            .ReturnsAsync(expectedDto);
+            _mockMediator.Verify(
+                m => m.Send(command, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
 
-    //        // ============ ACT ============
-    //        var result = await _controller.Create(inputDto);
+        #endregion
 
-    //        // ============ ASSERT ============
-    //        var createdResult = Assert.IsType<CreatedAtActionResult>(result);
-            
-    //        // Verify route values để tạo Location header
-    //        Assert.NotNull(createdResult.RouteValues);
-    //        Assert.Single(createdResult.RouteValues); // Chỉ có 1 route value
-    //        Assert.Equal("location-test-slug", createdResult.RouteValues["articleSlug"]);
-            
-    //        // Verify action name
-    //        Assert.Equal("GetArticleBySlug", createdResult.ActionName);
-            
-    //        // Note: Location header thực tế sẽ được ASP.NET Core generate:
-    //        // "http://localhost/api/Article/list/location-test-slug"
-    //    }
+        #region Scenario 4: Lỗi hệ thống khi CreateAsync trả null (500)
 
-    //    #endregion
-    //}
+        [Fact]
+        public async Task Create_RepositoryReturnsNull_ReturnsInternalServerError()
+        {
+            // Arrange
+            var command = BuildValidCommand();
+
+            var methodResult = new MethodResult<ArticleDto>();
+            methodResult.AddError(
+                StatusCodes.Status500InternalServerError,
+                nameof(EnumSystemErrorCode.ServerError),
+                "articleDomain");
+
+            _mockMediator
+                .Setup(m => m.Send(command, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(methodResult);
+
+            // Act
+            var result = await _controller.Create(command);
+
+            // Assert
+            var objectResult = Assert.IsAssignableFrom<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+
+            _mockMediator.Verify(
+                m => m.Send(command, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        #endregion
+
+        #region Scenario 5: Verify command được forward nguyên vẹn (không bị controller sửa)
+
+        [Fact]
+        public async Task Create_ForwardsExactCommandInstance_ToMediator()
+        {
+            // Arrange
+            var command = BuildValidCommand();
+            CreateArticleCommand? capturedCommand = null;
+
+            _mockMediator
+                .Setup(m => m.Send(It.IsAny<CreateArticleCommand>(), It.IsAny<CancellationToken>()))
+                .Callback<IRequest<MethodResult<ArticleDto>>, CancellationToken>((cmd, _) =>
+                    capturedCommand = cmd as CreateArticleCommand)
+                .ReturnsAsync(new MethodResult<ArticleDto>
+                {
+                    StatusCode = StatusCodes.Status200OK,
+                    Result = new ArticleDto { Slug = command.Slug }
+                });
+
+            // Act
+            await _controller.Create(command);
+
+            // Assert - controller không được phép tạo command mới hay sửa field nào
+            Assert.NotNull(capturedCommand);
+            Assert.Same(command, capturedCommand);
+        }
+
+        #endregion
+    }
 }
