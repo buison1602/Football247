@@ -42,7 +42,7 @@ namespace Football247.Controllers
             var queryResult = await _mediator.Send(request).ConfigureAwait(false);
             return queryResult.GetActionResult();
         }
-
+           
 
         [HttpPost]
         [Authorize(Policy = Permissions.Articles.Create)]
