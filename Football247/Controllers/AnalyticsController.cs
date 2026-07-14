@@ -18,7 +18,7 @@ namespace Football247.Api.Controllers
         }
 
 
-        [HttpGet("TEST-CD-haha-hehe123")]
+        [HttpGet("TEST-CD-haha-hehe123456")]
         public async Task<IActionResult> GetRevenue_test()
         => (await _mediator.Send(new GetRevenueQuery())).GetActionResult();
 
