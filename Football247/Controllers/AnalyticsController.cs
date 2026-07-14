@@ -17,6 +17,11 @@ namespace Football247.Api.Controllers
             _mediator = mediator;
         }
 
+
+        [HttpGet("TEST-CD")]
+        public async Task<IActionResult> GetRevenue_test()
+        => (await _mediator.Send(new GetRevenueQuery())).GetActionResult();
+
         // GET /api/analytics/top-categories?period=1|2
         [HttpGet("top-categories")]
         public async Task<IActionResult> GetTopCategories([FromQuery] GetTopCategoriesQuery query)
